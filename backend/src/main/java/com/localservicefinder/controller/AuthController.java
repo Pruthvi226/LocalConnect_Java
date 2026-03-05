@@ -35,6 +35,38 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/register/customer")
+    public ResponseEntity<?> registerCustomer(@Valid @RequestBody RegisterRequest request) {
+        try {
+            request.setRole("USER");
+            User user = authService.register(request);
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Customer registered successfully!");
+            response.put("userId", user.getId());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @PostMapping("/register/provider")
+    public ResponseEntity<?> registerProvider(@Valid @RequestBody RegisterRequest request) {
+        try {
+            request.setRole("PROVIDER");
+            User user = authService.register(request);
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Service Provider registered successfully!");
+            response.put("userId", user.getId());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest request) {
         try {

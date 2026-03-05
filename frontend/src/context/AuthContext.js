@@ -37,8 +37,12 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  const register = async (userData) => {
-    await authService.register(userData);
+  const register = async (userData, type = 'customer') => {
+    if (type === 'provider') {
+      await authService.registerProvider(userData);
+    } else {
+      await authService.registerCustomer(userData);
+    }
   };
 
   const logout = () => {

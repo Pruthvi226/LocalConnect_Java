@@ -2,6 +2,7 @@ package com.localservicefinder.service;
 
 import com.localservicefinder.model.Booking;
 import com.localservicefinder.model.Booking.BookingStatus;
+import com.localservicefinder.model.Notification;
 import com.localservicefinder.model.Service;
 import com.localservicefinder.model.User;
 import com.localservicefinder.repository.BookingRepository;
@@ -26,6 +27,9 @@ public class BookingService {
 
     @Autowired
     EmailService emailService;
+
+    @Autowired
+    NotificationService notificationService;
 
     public List<Booking> getUserBookings() {
         User currentUser = authService.getCurrentUser();
@@ -76,6 +80,15 @@ public class BookingService {
 
         Booking savedBooking = bookingRepository.save(booking);
 
+        // Notify provider (realtime via NotificationService)
+        notificationService.createNotification(
+                service.getProvider(),
+                "New Booking",
+                "New booking #" + savedBooking.getId() + " for " + service.getTitle(),
+                Notification.NotificationType.BOOKING_CREATED,
+                savedBooking.getId()
+        );
+
         // Send email notification
         try {
             emailService.sendBookingConfirmation(currentUser.getEmail(), savedBooking);
@@ -106,6 +119,7 @@ public class BookingService {
             throw new RuntimeException("You don't have permission to update this booking");
         }
 
+        BookingStatus oldStatus = booking.getStatus();
         if (status != null) {
             booking.setStatus(status);
         }
@@ -113,7 +127,29 @@ public class BookingService {
             booking.setNotes(notes);
         }
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        // Booking lifecycle notifications (realtime via NotificationService)
+        if (oldStatus != saved.getStatus()) {
+            User customer = booking.getUser();
+            User provider = booking.getService().getProvider();
+            if (saved.getStatus() == BookingStatus.CONFIRMED) {
+                notificationService.createNotification(customer, "Booking Confirmed",
+                        "Your booking #" + saved.getId() + " has been confirmed.",
+                        Notification.NotificationType.BOOKING_CONFIRMED, saved.getId());
+            } else if (saved.getStatus() == BookingStatus.COMPLETED) {
+                notificationService.createNotification(customer, "Booking Completed",
+                        "Booking #" + saved.getId() + " has been marked completed.",
+                        Notification.NotificationType.BOOKING_COMPLETED, saved.getId());
+            } else if (saved.getStatus() == BookingStatus.CANCELLED) {
+                User toNotify = currentUser.getId().equals(provider.getId()) ? customer : provider;
+                notificationService.createNotification(toNotify, "Booking Cancelled",
+                        "Booking #" + saved.getId() + " has been cancelled.",
+                        Notification.NotificationType.BOOKING_CANCELLED, saved.getId());
+            }
+        }
+
+        return saved;
     }
 
     @Transactional
@@ -133,6 +169,15 @@ public class BookingService {
 
         booking.setStatus(BookingStatus.CANCELLED);
         bookingRepository.save(booking);
+
+        // Notify provider
+        notificationService.createNotification(
+                booking.getService().getProvider(),
+                "Booking Cancelled",
+                "Booking #" + booking.getId() + " was cancelled by the customer.",
+                Notification.NotificationType.BOOKING_CANCELLED,
+                booking.getId()
+        );
     }
 
     public Optional<Booking> getBookingById(Long id) {

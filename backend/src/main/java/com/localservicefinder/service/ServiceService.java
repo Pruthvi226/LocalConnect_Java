@@ -97,10 +97,12 @@ public class ServiceService {
     public void deleteService(Long id) {
         Service service = serviceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Service not found"));
-        
+
         User currentUser = authService.getCurrentUser();
-        if (currentUser.getRole() != User.Role.ADMIN) {
-            throw new RuntimeException("Only admins can delete services");
+        boolean canDelete = currentUser.getRole() == User.Role.ADMIN
+                || service.getProvider().getId().equals(currentUser.getId());
+        if (!canDelete) {
+            throw new RuntimeException("You don't have permission to delete this service");
         }
 
         serviceRepository.delete(service);
@@ -108,5 +110,16 @@ public class ServiceService {
 
     public List<Service> getServicesByProvider(Long providerId) {
         return serviceRepository.findByProviderId(providerId);
+    }
+
+    public List<Service> getMyServices() {
+        User currentUser = authService.getCurrentUser();
+        if (currentUser == null) {
+            throw new RuntimeException("Not authenticated");
+        }
+        if (currentUser.getRole() != User.Role.PROVIDER && currentUser.getRole() != User.Role.ADMIN) {
+            throw new RuntimeException("Only providers can list their services");
+        }
+        return serviceRepository.findByProviderId(currentUser.getId());
     }
 }

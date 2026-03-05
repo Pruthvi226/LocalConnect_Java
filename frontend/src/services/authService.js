@@ -6,6 +6,18 @@ export const authService = {
     return response.data;
   },
 
+  registerCustomer: async (userData) => {
+    const { role, ...rest } = userData;
+    const response = await api.post('/auth/register/customer', rest);
+    return response.data;
+  },
+
+  registerProvider: async (userData) => {
+    const { role, ...rest } = userData;
+    const response = await api.post('/auth/register/provider', rest);
+    return response.data;
+  },
+
   login: async (username, password) => {
     const response = await api.post('/auth/login', { username, password });
     if (response.data.token) {

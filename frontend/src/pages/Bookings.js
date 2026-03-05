@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -19,6 +20,7 @@ import { bookingService } from '../services/bookingService';
 import dayjs from 'dayjs';
 
 const Bookings = () => {
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -124,13 +126,22 @@ const Bookings = () => {
                       size="small"
                     />
                     {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
-                      <Button
-                        size="small"
-                        color="error"
-                        onClick={() => handleCancelClick(booking)}
-                      >
-                        Cancel
-                      </Button>
+                      <>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => navigate(`/checkout/${booking.id}`)}
+                        >
+                          Pay
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => handleCancelClick(booking)}
+                        >
+                          Cancel
+                        </Button>
+                      </>
                     )}
                   </Box>
                 </Box>

@@ -14,6 +14,7 @@ import java.util.List;
 public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByUserId(Long userId);
     List<Booking> findByServiceId(Long serviceId);
+    List<Booking> findByService_Provider_Id(Long providerId);
     List<Booking> findByStatus(BookingStatus status);
     
     @Query("SELECT b FROM Booking b WHERE b.service.id = :serviceId AND " +

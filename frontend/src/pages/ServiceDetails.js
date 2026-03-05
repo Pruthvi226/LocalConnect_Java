@@ -74,7 +74,7 @@ const ServiceDetails = () => {
 
   const handleBooking = async () => {
     if (!isAuthenticated) {
-      navigate('/login');
+      navigate('/login/customer');
       return;
     }
 
@@ -96,7 +96,7 @@ const ServiceDetails = () => {
 
   const handleReviewSubmit = async () => {
     if (!isAuthenticated) {
-      navigate('/login');
+      navigate('/login/customer');
       return;
     }
 
@@ -304,7 +304,7 @@ const ServiceDetails = () => {
             </Button>
             {!isAuthenticated && (
               <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
-                Please <Button onClick={() => navigate('/login')}>login</Button> to book
+                Please <Button onClick={() => navigate('/login/customer')}>login</Button> to book
               </Typography>
             )}
             </Paper>
