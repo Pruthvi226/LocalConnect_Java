@@ -1,20 +1,32 @@
 import api from './api';
 
+const buildQuery = (filters = {}) => {
+  const params = new URLSearchParams();
+  Object.keys(filters).forEach((key) => {
+    const value = filters[key];
+    if (value !== null && value !== undefined && value !== '') {
+      params.append(key, value);
+    }
+  });
+  const query = params.toString();
+  return query ? `/services?${query}` : '/services';
+};
+
 export const serviceService = {
   getAll: async (filters = {}) => {
-    const params = new URLSearchParams();
-    Object.keys(filters).forEach(key => {
-      if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') {
-        params.append(key, filters[key]);
-      }
-    });
-    const response = await api.get(`/services?${params.toString()}`);
-    return response.data;
+    const response = await api.get(buildQuery(filters));
+    // Backend returns Page<ServiceDto>, so we need .content
+    return response.data.content || response.data;
+  },
+
+  getAllWithFilters: async (filters = {}) => {
+    const response = await api.get(buildQuery(filters));
+    return response.data.content || response.data;
   },
 
   search: async (query) => {
     const response = await api.get(`/services/search?q=${encodeURIComponent(query)}`);
-    return response.data;
+    return response.data.content || response.data;
   },
 
   getById: async (id) => {

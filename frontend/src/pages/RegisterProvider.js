@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Briefcase, Mail, Lock, Phone, MapPin, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Briefcase, Mail, Lock, Phone, MapPin, ArrowRight, Eye, EyeOff, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import ThreeDBackground from '../components/ThreeDBackground';
 
 const RegisterProvider = () => {
   const [formData, setFormData] = useState({
@@ -14,8 +13,10 @@ const RegisterProvider = () => {
     phone: '',
     address: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -26,194 +27,247 @@ const RegisterProvider = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsSuccess(false);
 
-    if (!formData.username || !formData.email || !formData.password || !formData.fullName) {
-      setError('Please fill in all required fields');
+    if (!formData.username || !formData.email || !formData.password || !formData.fullName || !formData.phone || !formData.address) {
+      setError('Essential provider credentials are missing in the application matrix.');
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('Security key must be at least 6 characters for optimal protection.');
       return;
     }
 
     setLoading(true);
-    setError('');
     try {
       await register({ ...formData }, 'provider');
-      navigate('/login/provider');
+      setIsSuccess(true);
+      // Wait for 2 seconds to show success message before redirecting
+      setTimeout(() => {
+        navigate('/login/provider');
+      }, 2000);
     } catch (err) {
-      const message = err.response?.data?.error || err.message || 'Registration failed. Please try again.';
-      setError(message);
+      // Prioritize the specific message from the server (e.g., "Username already taken")
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Provider registration failed. Please attempt again.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
+  const inputClasses = "w-full bg-slate-50 border-2 border-transparent focus:border-indigo-500/20 focus:bg-white rounded-2xl py-3.5 pl-12 pr-5 text-slate-900 font-bold outline-none transition-all placeholder:text-slate-300 shadow-sm text-sm";
+  const labelClasses = "text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block";
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary-50 via-white to-primary-50 flex flex-col md:flex-row items-center justify-center px-4 py-12 gap-8">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hidden md:block w-full max-w-sm h-64 rounded-2xl overflow-hidden shadow-xl">
-        <ThreeDBackground className="h-64" />
-      </motion.div>
+    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4 py-24 relative overflow-hidden">
+      {/* Background Ambience */}
+      <div className="absolute top-0 left-0 w-full h-full -z-10 overflow-hidden">
+        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-100 rounded-full blur-[120px] opacity-40 animate-pulse"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary-100 rounded-full blur-[120px] opacity-40"></div>
+      </div>
+
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="w-full max-w-2xl"
       >
-        <div className="card">
-          <div className="text-center mb-8">
+        <div className="bg-white rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(79,70,229,0.15)] border border-white p-8 lg:p-12 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-indigo-600 to-primary-500"></div>
+
+          <div className="text-center mb-10">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: "spring" }}
-              className="inline-flex items-center justify-center w-16 h-16 bg-secondary-100 rounded-full mb-4"
+              transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+              className="inline-flex items-center justify-center w-16 h-16 bg-indigo-50 rounded-2xl mb-6 relative group"
             >
-              <Briefcase className="w-8 h-8 text-secondary-600" />
+              <div className="absolute inset-0 bg-indigo-200 rounded-2xl blur-lg opacity-0 group-hover:opacity-40 transition-opacity"></div>
+              <Briefcase className="w-8 h-8 text-indigo-600 relative z-10" />
             </motion.div>
-            <h1 className="text-3xl font-bold mb-2">Become a Service Provider</h1>
-            <p className="text-gray-600">Join LocalConnect and grow your business</p>
+            <h1 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">Provider <span className="text-indigo-600">Network.</span></h1>
+            <p className="text-slate-500 font-medium">Join our ecosystem of expert professionals</p>
           </div>
 
-          {error && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4"
-            >
-              {error}
-            </motion.div>
-          )}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="bg-red-50 border border-red-100 text-red-600 px-5 py-4 rounded-2xl mb-8 flex items-center gap-3"
+              >
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                <p className="text-sm font-bold">{error}</p>
+              </motion.div>
+            )}
+            {isSuccess && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-emerald-50 border border-emerald-100 text-emerald-600 px-5 py-6 rounded-[2rem] mb-8 text-center"
+              >
+                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                </div>
+                <h3 className="font-black text-lg mb-1">Registration Successful!</h3>
+                <p className="text-sm font-bold text-emerald-600/70">Redirecting to secure login portal...</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Business/Full Name *
-              </label>
-              <div className="relative">
-                <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  className="input-field pl-10"
-                  placeholder="ABC Services"
-                  required
-                />
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <label className={labelClasses}>Business / Full Name</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                    <Briefcase className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    className={inputClasses}
+                    placeholder="ABC Pro Services"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelClasses}>Provider ID / Username</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                    <CheckCircle2 className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    className={inputClasses}
+                    placeholder="provider_expert_01"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Username *
-              </label>
-              <input
-                type="text"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="abcservices"
-                required
-              />
-            </div>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <label className={labelClasses}>Professional Email</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                  </div>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={inputClasses}
+                    placeholder="contact@abcpro.com"
+                    required
+                  />
+                </div>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="input-field pl-10"
-                  placeholder="contact@abcservices.com"
-                  required
-                />
+              <div className="space-y-1">
+                <label className={labelClasses}>Security Key / Password</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className={inputClasses}
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-5 flex items-center text-slate-300 hover:text-indigo-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="input-field pl-10"
-                  placeholder="Minimum 6 characters"
-                  required
-                />
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <label className={labelClasses}>Professional Contact</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                    <Phone className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                  </div>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className={inputClasses}
+                    placeholder="+1 (555) 000-0000"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelClasses}>Business Address / Base</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                    <MapPin className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    className={inputClasses}
+                    placeholder="456 Enterprise Way"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phone *
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="input-field pl-10"
-                  placeholder="+1 234 567 8900"
-                  required
-                />
-              </div>
+            <div className="pt-6">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group disabled:opacity-70"
+              >
+                {loading ? (
+                  <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    Open Provider Application
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Business Address *
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  className="input-field pl-10"
-                  rows="2"
-                  placeholder="Your business address"
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-secondary w-full flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  Register as Provider <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Already have an account?{' '}
-              <Link to="/login/provider" className="text-secondary-600 hover:text-secondary-700 font-semibold">
-                Sign In
-              </Link>
+          <div className="mt-10 pt-8 border-t border-slate-50 text-center">
+            <p className="text-slate-400 font-bold text-sm">
+              Already verified?{' '}
+              <Link to="/login/provider" className="text-indigo-600 hover:underline">Sign In</Link>
             </p>
           </div>
         </div>
+        
+        <p className="text-center mt-8 text-slate-400 text-xs font-medium">
+          Provider access is subject to credential verification.
+        </p>
       </motion.div>
     </div>
   );

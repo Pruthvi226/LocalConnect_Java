@@ -12,11 +12,11 @@
         <relativePath/>
     </parent>
     
-    <groupId>com.servicehub</groupId>
-    <artifactId>servicehub-backend</artifactId>
+    <groupId>com.nearnest</groupId>
+    <artifactId>nearnest-backend</artifactId>
     <version>1.0.0</version>
-    <name>ServiceHub</name>
-    <description>ServiceHub - Full-stack application connecting local service providers with service seekers</description>
+    <name>NearNest</name>
+    <description>NearNest - Intelligent Hyperlocal Service Recommendation Platform</description>
     
     <properties>
         <java.version>17</java.version>
@@ -85,6 +85,13 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
         
+        <!-- Razorpay -->
+        <dependency>
+            <groupId>com.razorpay</groupId>
+            <artifactId>razorpay-java</artifactId>
+            <version>1.4.3</version>
+        </dependency>
+
         <!-- Stripe -->
         <dependency>
             <groupId>com.stripe</groupId>
@@ -119,6 +126,13 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <!-- SpringDoc OpenAPI / Swagger UI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.3.0</version>
         </dependency>
     </dependencies>
     

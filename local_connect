@@ -1,0 +1,92 @@
+# ProxiSense: End-to-End Product Walkthrough
+
+This document showcases the full functional lifecycle of the **ProxiSense** platform, demonstrating both the **Customer** and **Provider** experiences in a realistic, populated marketplace environment.
+
+## 👥 Personas
+- **Alex Johnson (Customer)**: A new user looking for professional cleaning services.
+- **Rajesh Kumar (Provider)**: An expert cleaning professional managing multiple high-end services.
+
+---
+
+## 🏗️ Phase 1: Customer Onboarding & Discovery
+Alex registers as a new user and searches for cleaning services in Bangalore.
+
+### 1. Registration & Secure Access
+Alex creates a personalized account (`alexj`) and enters the marketplace.
+![Login Page Success](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/signup_success_login_page_1773853647615.png)
+
+### 2. Intelligent Service Search
+Alex searches for "Plumbing" and explores the vibrant catalog of local experts.
+![Search Discovery](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/plumbing_search_results_1773853801558.png)
+
+### 📽️ Discovery Flow Recording
+![Alex Discovery Flow](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/customer_alex_journey_part1_1773853496671.webp)
+
+---
+
+## 📅 Phase 2: Service Selection & Booking
+Alex selects Rajesh Kumar's "Premium Office Cleaning" service and places a reservation.
+
+### 1. Professional Service Deep-Dive
+Detailed service profile showing pricing, provider bio, and location.
+![Service Details](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/service_details_premium_office_cleaning_1773853876958.png)
+
+### 2. Instant Booking Confirmation
+The reservation is successfully placed and appears in Alex's "Expertise Sync" (My Bookings) dashboard.
+![Initial Booking State](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/booking_success_and_my_bookings_1773853906588.png)
+
+### 📽️ Booking Flow Recording
+![Alex Booking Flow](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/customer_alex_journey_part2_booking_1773853846159.webp)
+
+---
+
+## 💼 Phase 3: Provider Operations Management
+Rajesh Kumar logs into his Operations Center to manage and fulfill the incoming request.
+
+### 1. Task Inbox & Acceptance
+Rajesh receives the request from Alex and confirms the engagement.
+![Provider Inbox](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/provider_dashboard_initial_1773855428558.png)
+
+### 2. Service Fulfillment
+Marking the service as completed updates the dashboard metrics and fulfills the client's request.
+![Provider Completion](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/provider_dashboard_completed_1773855451575.png)
+
+### 📽️ Provider Management Recording
+![Rajesh Operations Flow](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/provider_rajesh_final_walkthrough_1773855401815.webp)
+
+---
+
+## ✅ Phase 4: Final Lifecycle Confirmation
+Alex returns to his dashboard to see the finalized service, completing the end-to-end simulation.
+
+### 1. Finalized Project State
+The project status is updated to **FINALIZED**, showcasing a seamless two-sided marketplace interaction.
+![Final Customer Confirmation](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/final_customer_booking_verification_1773855569561.png)
+
+### 📽️ Final Confirmation Recording
+![Alex Final State Flow](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/customer_alex_final_confirmation_1773855488072.webp)
+
+---
+
+## 📍 Phase 5: High-Precision Geospatial Discovery
+Alex explores the marketplace using the new interactive map system to find experts near his specific location.
+
+### 1. Unified Discovery Interface
+Alex uses the split-view discovery engine, searching by city (Bangalore) and adjusting the visibility range.
+![Geospatial Search](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/proximity_discovery_highlight_verified_1773858607778.png)
+
+### 2. Interactive Map Synchronization
+Hovering over a service card on the left instantly highlights the expert's location on the interactive map.
+![Marker Sync](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/proximity_discovery_highlight_1773858583510.png)
+
+### 📽️ Geospatial Discovery Recording
+![Discovery Flow](file:///C:/Users/pruthviraj/.gemini/antigravity/brain/9004e18d-cefe-4caf-bdf8-ce0b97cb14c6/mock_discovery_final_verify_retry_1773858533903.webp)
+
+---
+
+## 🛠️ Technical Implementation Summary
+- **Geospatial Backend**: Integrated Haversine formula for server-side distance calculations and updated [ServiceDto](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/dto/ServiceDto.java#7-104) with precise coordinate mapping.
+- **Interactive Map Engine**: Custom React Google Maps integration with multi-marker support, InfoWindows, and two-way state synchronization.
+- **Places Autocomplete**: Integrated Google Places API for seamless location searching.
+- **Resilient Fallback**: Implemented a "Mock Discovery Mode" that maintains a premium interactive experience even without an active Google Maps API key.
+- **Premium UX**: Modern side-by-side layout with glassmorphic controls and smooth Framer Motion animations.

@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Search, MapPin, Star, Sparkles } from 'lucide-react';
-import ThreeDScene from '../components/ThreeDScene';
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Search, MapPin, Star, Sparkles, 
+  SlidersHorizontal, X, ArrowRight,
+  Navigation, Zap, Filter, Info
+} from 'lucide-react';
 import ServiceCard from '../components/ServiceCard';
 import { serviceService } from '../services/serviceService';
+import { ServiceCardSkeleton } from '../components/Skeleton';
 
 const Home = () => {
   const [services, setServices] = useState([]);
@@ -14,261 +17,327 @@ const Home = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [minRating, setMinRating] = useState(null);
+  const [maxDistance, setMaxDistance] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
 
   useEffect(() => {
-    loadServices();
     loadCategories();
+    detectLocation();
   }, []);
 
   useEffect(() => {
-    filterServices();
-  }, [services, searchQuery, selectedCategory]);
+    const handler = setTimeout(() => {
+      loadServices({
+        category: selectedCategory,
+        minRating: minRating,
+        maxDistanceKm: maxDistance,
+        userLat: userLocation?.latitude,
+        userLng: userLocation?.longitude
+      });
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [selectedCategory, minRating, maxDistance, userLocation]);
 
-  const loadServices = async () => {
+  useEffect(() => {
+    filterServices();
+  }, [searchQuery, services]);
+
+  const loadServices = async (filters = {}) => {
     try {
       setLoading(true);
-      const data = await serviceService.getAll();
+      const data = await serviceService.getAllWithFilters(filters);
       setServices(data);
       setFilteredServices(data);
     } catch (err) {
-      setError('Failed to load services');
+      setError('Services could not be retrieved. Please check your connection.');
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  const detectLocation = () => {
+    if (!navigator.geolocation) return loadServices();
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        setUserLocation(coords);
+        loadServices({ userLat: coords.latitude, userLng: coords.longitude });
+      },
+      () => loadServices(),
+      { enableHighAccuracy: false, timeout: 5000 }
+    );
+  };
+
   const loadCategories = async () => {
     try {
       const data = await serviceService.getCategories();
       setCategories(data);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const filterServices = () => {
     let filtered = [...services];
-
     if (searchQuery) {
-      filtered = filtered.filter(
-        (service) =>
-          service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          service.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      filtered = filtered.filter(s => 
+        s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.description?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-
-    if (selectedCategory) {
-      filtered = filtered.filter((service) => service.category === selectedCategory);
-    }
-
+    if (selectedCategory) filtered = filtered.filter(s => s.category === selectedCategory);
+    if (minRating) filtered = filtered.filter(s => (s.averageRating || 0) >= minRating);
+    if (maxDistance) filtered = filtered.filter(s => (s.distanceKm || 0) <= maxDistance);
+    
     setFilteredServices(filtered);
   };
 
-  const popularCategories = [
-    { name: 'Plumbing', icon: '🔧', count: 45 },
-    { name: 'Electrical', icon: '⚡', count: 32 },
-    { name: 'Cleaning', icon: '🧹', count: 67 },
-    { name: 'Gardening', icon: '🌱', count: 28 },
-    { name: 'Painting', icon: '🎨', count: 19 },
-    { name: 'Carpentry', icon: '🪚', count: 24 },
-  ];
+  const resetFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('');
+    setMinRating(null);
+    setMaxDistance(null);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
-      {/* Hero Section with 3D Animation */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary-600/10 to-secondary-600/10"></div>
-        <div className="container mx-auto px-4 py-20 relative z-10">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              className="text-center md:text-left"
-            >
-              <motion.div
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2 }}
-                className="inline-flex items-center gap-2 bg-primary-100 text-primary-700 px-4 py-2 rounded-full mb-6"
-              >
-                <Sparkles className="w-5 h-5" />
-                <span className="font-semibold">LocalConnect - Your Trusted Service Marketplace</span>
-              </motion.div>
-              
-              <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
-                Connect with Local
-                <br />
-                Service Experts
+    <div className="min-h-screen bg-slate-50 pt-24 pb-20">
+      <div className="container mx-auto px-4 lg:px-6">
+        
+        {/* Search & Discover Header */}
+        <div className="max-w-5xl mx-auto mb-12">
+           <header className="mb-10 text-center lg:text-left">
+              <h1 className="text-4xl lg:text-6xl font-black text-slate-900 tracking-tight mb-4">
+                Find your next <br className="hidden lg:block" />
+                <span className="text-primary-600">Local Expert.</span>
               </h1>
-              
-              <p className="text-xl text-gray-600 mb-8">
-                Find trusted professionals for all your service needs. From home repairs to professional services, we connect you with the best local providers.
+              <p className="text-lg text-slate-500 font-medium max-w-2xl">
+                The cleverest way to connect with service professionals in your area. 
+                Sourced locally, verified personally.
               </p>
+           </header>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-                <Link to="/register/customer" className="btn-primary text-lg px-8 py-4">
-                  Find Services
-                </Link>
-                <Link to="/register/provider" className="btn-secondary text-lg px-8 py-4">
-                  Become a Provider
-                </Link>
+           {/* Smart Search Bar */}
+           <div className="relative group">
+              <div className="absolute inset-0 bg-primary-500/10 blur-[60px] opacity-0 group-focus-within:opacity-100 transition-opacity"></div>
+              <div className="relative glass-card p-2 rounded-[2.5rem] border-white/60 shadow- premium flex flex-col lg:flex-row gap-2">
+                 <div className="flex-1 relative flex items-center">
+                    <Search className="absolute left-6 text-slate-400 w-5 h-5" />
+                    <input
+                      type="text"
+                      placeholder="Search for repair, cleaning, tech..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-transparent pl-14 pr-6 py-5 text-lg font-bold text-slate-800 focus:outline-none placeholder:text-slate-300"
+                    />
+                 </div>
+                 <div className="h-12 w-px bg-slate-100 hidden lg:block self-center"></div>
+                 <div className="flex items-center px-4 lg:w-64">
+                    <MapPin className="text-primary-500 w-5 h-5 mr-3" />
+                    <span className="text-sm font-bold text-slate-500 truncate">
+                      {userLocation ? 'Broadcasting near you' : 'Detecting area...'}
+                    </span>
+                 </div>
+                 <button 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`px-8 py-4 rounded-3xl font-black text-sm flex items-center justify-center gap-2 transition-all ${
+                    showFilters ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                 >
+                    <SlidersHorizontal className="w-4 h-4" />
+                    Filters
+                 </button>
+                 <button className="bg-primary-600 hover:bg-primary-700 text-white px-10 py-4 rounded-3xl font-black shadow-xl shadow-primary-500/20 active:scale-95 transition-all">
+                    Search
+                 </button>
               </div>
-            </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
-              className="h-96 md:h-[500px] rounded-2xl overflow-hidden shadow-2xl"
-            >
-              <ThreeDScene />
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Search Section */}
-      <section className="container mx-auto px-4 -mt-12 relative z-20">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="card max-w-4xl mx-auto"
-        >
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search for services..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-field pl-12"
-              />
-            </div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="input-field md:w-64"
-            >
-              <option value="">All Categories</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-            <button className="btn-primary px-8">
-              Search
-            </button>
-          </div>
-        </motion.div>
-      </section>
-
-      {/* Popular Categories */}
-      <section className="container mx-auto px-4 py-16">
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="text-center mb-12"
-        >
-          <h2 className="text-4xl font-bold mb-4">Popular Service Categories</h2>
-          <p className="text-gray-600 text-lg">Browse our most requested services</p>
-        </motion.div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {popularCategories.map((category, index) => (
-            <motion.div
-              key={category.name}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              className="card text-center cursor-pointer hover:scale-105 transform transition-transform"
-            >
-              <div className="text-4xl mb-2">{category.icon}</div>
-              <h3 className="font-semibold mb-1">{category.name}</h3>
-              <p className="text-sm text-gray-500">{category.count} providers</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Services List */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-4xl font-bold">Available Services</h2>
-          <p className="text-gray-600">{filteredServices.length} services found</p>
+              {/* Advanced Filter Panel */}
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                    exit={{ opacity: 0, y: -20, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-4 p-8 bg-white rounded-[2rem] border border-slate-100 shadow-xl grid md:grid-cols-3 gap-8">
+                       <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Category Focus</p>
+                          <div className="flex flex-wrap gap-2">
+                             {categories.map(cat => (
+                               <button 
+                                 key={cat}
+                                 onClick={() => setSelectedCategory(selectedCategory === cat ? '' : cat)}
+                                 className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                                   selectedCategory === cat ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-50 border-slate-100 text-slate-500 hover:border-primary-200'
+                                 }`}
+                               >
+                                 {cat}
+                               </button>
+                             ))}
+                          </div>
+                       </div>
+                       <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Quality Threshold</p>
+                          <div className="flex gap-2">
+                             {[3, 4, 4.5].map(rating => (
+                               <button 
+                                 key={rating}
+                                 onClick={() => setMinRating(minRating === rating ? null : rating)}
+                                 className={`flex-1 py-3 rounded-xl text-xs font-bold border flex flex-col items-center gap-1 transition-all ${
+                                   minRating === rating ? 'bg-amber-500 border-amber-500 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-500'
+                                 }`}
+                               >
+                                 <Star className={`w-4 h-4 ${minRating === rating ? 'fill-white' : 'fill-amber-400 text-amber-400'}`} />
+                                 {rating}+ Stars
+                               </button>
+                             ))}
+                          </div>
+                       </div>
+                       <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Maximum Distance</p>
+                          <div className="grid grid-cols-3 gap-2">
+                             {[5, 15, 30].map(dist => (
+                               <button 
+                                 key={dist}
+                                 onClick={() => setMaxDistance(maxDistance === dist ? null : dist)}
+                                 className={`py-3 rounded-xl text-xs font-bold border transition-all ${
+                                   maxDistance === dist ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-500'
+                                 }`}
+                               >
+                                 {dist}km
+                               </button>
+                             ))}
+                          </div>
+                       </div>
+                       <div className="md:col-span-3 pt-4 border-t border-slate-100 flex justify-end gap-3">
+                          <button onClick={resetFilters} className="px-6 py-2 text-sm font-bold text-slate-400 hover:text-slate-600">Clear All</button>
+                          <button onClick={() => setShowFilters(false)} className="bg-slate-900 text-white px-8 py-2 rounded-xl text-sm font-bold">Apply Filters</button>
+                       </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+           </div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-20">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        ) : filteredServices.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-600 text-lg">No services found. Try adjusting your search.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredServices.map((service, index) => (
-              <motion.div
-                key={service.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <ServiceCard service={service} />
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </section>
+        {/* Results Section */}
+        <section className="max-w-7xl mx-auto">
+           <div className="flex items-center justify-between mb-8 px-2">
+              <div className="flex items-center gap-3">
+                 <h2 className="text-2xl font-black text-slate-800">
+                    {searchQuery ? 'Search Results' : 'Recommended Nearby'}
+                 </h2>
+                 <span className="bg-slate-200 text-slate-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                   {filteredServices.length} Total
+                 </span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-400 text-sm font-bold">
+                 Sort by: <span className="text-primary-600 cursor-pointer">Distance</span>
+              </div>
+           </div>
 
-      {/* Features Section */}
-      <section className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-20">
-        <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-4xl font-bold mb-4">Why Choose LocalConnect?</h2>
-            <p className="text-xl opacity-90">Connecting you with trusted local professionals</p>
-          </motion.div>
+           {loading ? (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
+                {[1, 2, 3, 4, 5, 6].map(i => <ServiceCardSkeleton key={i} />)}
+             </div>
+           ) : error ? (
+             <div className="py-20 text-center bg-white rounded-[2.5rem] border border-red-50 shadow-xl max-w-2xl mx-auto p-12">
+                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500 mx-auto mb-6">
+                   <Info className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-black text-slate-800 mb-2">Service Outage</h3>
+                <p className="text-slate-500 font-medium mb-8">{error}</p>
+                <button onClick={() => window.location.reload()} className="btn-primary py-3 px-10">Retry Connection</button>
+             </div>
+           ) : filteredServices.length === 0 ? (
+             <div className="py-24 text-center">
+                <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-8">
+                   <Zap className="w-12 h-12 text-slate-300" />
+                </div>
+                <h3 className="text-3xl font-black text-slate-800 mb-4">No experts in this radius</h3>
+                <p className="text-slate-500 font-medium max-w-md mx-auto mb-10 text-lg">
+                  Try adjusting your filters or searching for something else. 
+                  Our network is growing every day!
+                </p>
+                <button onClick={resetFilters} className="bg-slate-900 text-white font-black py-4 px-12 rounded-2xl shadow-xl active:scale-95 transition-all">
+                  Reset Discovery
+                </button>
+             </div>
+           ) : (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
+               <AnimatePresence mode="popLayout">
+                 {filteredServices.map((service) => (
+                   <motion.div
+                     key={service.id}
+                     layout
+                     initial={{ opacity: 0, scale: 0.9 }}
+                     animate={{ opacity: 1, scale: 1 }}
+                     exit={{ opacity: 0, scale: 0.9 }}
+                   >
+                     <ServiceCard service={service} />
+                   </motion.div>
+                 ))}
+               </AnimatePresence>
+             </div>
+           )}
+        </section>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { icon: '✓', title: 'Verified Providers', desc: 'All service providers are verified and background checked' },
-              { icon: '💳', title: 'Secure Payments', desc: 'Safe and secure payment processing for all transactions' },
-              { icon: '⭐', title: 'Quality Guaranteed', desc: 'Rate and review services to maintain high standards' },
-            ].map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.2 }}
-                className="text-center"
-              >
-                <div className="text-5xl mb-4">{feature.icon}</div>
-                <h3 className="text-2xl font-bold mb-2">{feature.title}</h3>
-                <p className="opacity-90">{feature.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+        {/* ProxiSense Guarantee */}
+        <section className="mt-32 relative">
+           <div className="absolute inset-0 bg-primary-600 rounded-[3rem] -rotate-1"></div>
+           <div className="relative bg-slate-900 text-white rounded-[3rem] p-12 lg:p-20 overflow-hidden">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-primary-500/20 rounded-full blur-[100px] -mr-32 -mt-32"></div>
+              <div className="grid lg:grid-cols-2 gap-16 items-center relative z-10">
+                 <div>
+                    <h2 className="text-4xl lg:text-5xl font-black mb-8 leading-[1.1]">
+                       The ProxiSense <br />
+                       <span className="text-primary-400 font-serif italic">Verified Expert</span> <br />
+                       Standard.
+                    </h2>
+                    <ul className="space-y-6">
+                       <li className="flex gap-4">
+                          <div className="w-8 h-8 bg-primary-500 rounded-lg flex-shrink-0 flex items-center justify-center">✔</div>
+                          <div>
+                             <p className="font-bold text-lg">Background Audits</p>
+                             <p className="text-slate-400 font-medium text-sm">Every partner goes through a 12-point identity and history check.</p>
+                          </div>
+                       </li>
+                       <li className="flex gap-4">
+                          <div className="w-8 h-8 bg-primary-500 rounded-lg flex-shrink-0 flex items-center justify-center">✔</div>
+                          <div>
+                             <p className="font-bold text-lg">Quality Assurance</p>
+                             <p className="text-slate-400 font-medium text-sm">Continuous monitoring of service ratings and customer feedback.</p>
+                          </div>
+                       </li>
+                    </ul>
+                 </div>
+                 <div className="bg-white/5 backdrop-blur-md rounded-[2.5rem] border border-white/10 p-10">
+                    <div className="flex items-center gap-4 mb-8 text-indigo-300">
+                       <Sparkles className="w-10 h-10" />
+                       <p className="text-sm font-black uppercase tracking-[0.2em]">New: Smart Match AI</p>
+                    </div>
+                    <p className="text-xl font-medium mb-10 leading-relaxed text-slate-300">
+                       "ProxiSense AI analyzed 50+ local providers and matched me with an electrician arriving in 20 minutes. Extraordinary service."
+                    </p>
+                    <div className="flex items-center gap-4">
+                       <img src="https://i.pravatar.cc/100?u=dev" className="w-12 h-12 rounded-full border-2 border-primary-500" alt="Testimonial" />
+                       <div>
+                          <p className="font-black">David Miller</p>
+                          <p className="text-xs text-primary-400 font-bold uppercase tracking-wider">Early Adopter</p>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        </section>
+      </div>
     </div>
   );
 };
 
 export default Home;
+

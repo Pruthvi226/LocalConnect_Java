@@ -1,0 +1,85 @@
+version: '3.9'
+
+services:
+  # ── MySQL Database ─────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: nearsphere-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: nearsphere_db
+      MYSQL_USER: nearsphere
+      MYSQL_PASSWORD: nearsphere123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - nearsphere-net
+
+  # ── Spring Boot Backend ────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nearsphere-backend
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/nearsphere_db
+      SPRING_DATASOURCE_USERNAME: nearsphere
+      SPRING_DATASOURCE_PASSWORD: nearsphere123
+      JWT_SECRET: NearSphereAI_Super_Secret_Key_2025
+      ML_SERVICE_URL: http://ml:8000
+      SPRING_PROFILES_ACTIVE: prod
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    networks:
+      - nearsphere-net
+
+  # ── Python ML Microservice ─────────────────────
+  ml:
+    build:
+      context: ./backend-ml
+      dockerfile: Dockerfile
+    container_name: nearsphere-ml
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - nearsphere-net
+
+  # ── React Frontend ─────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nearsphere-frontend
+    restart: unless-stopped
+    environment:
+      REACT_APP_API_URL: http://localhost:8080
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - nearsphere-net
+
+  # ── Redis (Cache) ─────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: nearsphere-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - nearsphere-net
+
+volumes:
+  mysql_data:
+
+networks:
+  nearsphere-net:
+    driver: bridge

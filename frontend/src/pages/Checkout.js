@@ -133,11 +133,71 @@ const Checkout = () => {
   if (paymentSuccess) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold text-green-600 mb-2">Payment successful</h2>
-        <p className="text-gray-600">Redirecting to bookings…</p>
+        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 className="text-3xl font-black text-slate-900 mb-2">Payment successful!</h2>
+        <p className="text-slate-500 font-bold">Your booking is now confirmed. Redirecting…</p>
       </div>
     );
   }
+
+  const handleRazorpayPayment = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const orderData = await paymentService.createRazorpayOrder(Number(bookingId));
+      
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: "INR",
+        name: "ProxiSense",
+        description: `Payment for ${booking?.service?.title}`,
+        order_id: orderData.orderId,
+        handler: async (response) => {
+          try {
+            setLoading(true);
+            await paymentService.verifyRazorpayPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            });
+            setPaymentSuccess(true);
+            setTimeout(() => navigate('/bookings'), 2000);
+          } catch (err) {
+            setError(err.response?.data?.message || "Payment verification failed");
+          } finally {
+            setLoading(false);
+          }
+        },
+        prefill: {
+          name: booking?.user?.fullName || "",
+          email: booking?.user?.email || "",
+        },
+        theme: {
+          color: "#4F46E5",
+        },
+        modal: {
+          ondismiss: () => {
+             setLoading(false);
+          }
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        setError(response.error.description);
+      });
+      rzp.open();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to initiate payment");
+    } finally {
+      // Don't set loading false here because rzp is async popup
+    }
+  };
 
   const amount = booking?.service?.price;
   const stripePromise = config?.stripePublishableKey ? loadStripe(config.stripePublishableKey) : null;
@@ -157,17 +217,37 @@ const Checkout = () => {
 
         {!stripeClientSecret && !paypalOrderId && (
           <div className="card space-y-4">
+            {config?.razorpayEnabled && (
+              <button 
+                type="button" 
+                onClick={handleRazorpayPayment} 
+                disabled={loading}
+                className="w-full bg-[#3399cc] hover:bg-[#2b86b3] text-white py-4 rounded-2xl font-black flex items-center justify-center gap-3 shadow-lg shadow-blue-200 transition-all active:scale-[0.98]"
+              >
+                {loading ? (
+                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <img src="https://razorpay.com/favicon.png" alt="RZP" className="w-5 h-5" />
+                    Pay with Razorpay
+                  </>
+                )}
+              </button>
+            )}
+            
             {config?.stripeEnabled && (
-              <button type="button" onClick={createStripeIntent} className="btn-primary w-full">
+              <button type="button" onClick={createStripeIntent} className="btn-primary w-full opacity-60">
                 Pay with Card (Stripe)
               </button>
             )}
+            
             {config?.paypalEnabled && PAYPAL_CLIENT_ID && (
-              <button type="button" onClick={createPayPalOrder} className="btn-secondary w-full">
+              <button type="button" onClick={createPayPalOrder} className="btn-secondary w-full opacity-60">
                 Pay with PayPal
               </button>
             )}
-            {(!config?.stripeEnabled && !config?.paypalEnabled) && (
+
+            {!config?.stripeEnabled && !config?.paypalEnabled && !config?.razorpayEnabled && (
               <p className="text-gray-500">No payment methods configured. Contact support.</p>
             )}
           </div>

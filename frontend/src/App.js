@@ -3,7 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import Navbar from './components/Navbar';
+import Landing from './pages/Landing';
+import RoleSelection from './pages/RoleSelection';
 import Home from './pages/Home';
+import NearbyServices from './pages/NearbyServices';
 import LoginCustomer from './pages/LoginCustomer';
 import LoginProvider from './pages/LoginProvider';
 import RegisterCustomer from './pages/RegisterCustomer';
@@ -19,6 +22,8 @@ import ProviderProfile from './pages/ProviderProfile';
 import Favorites from './pages/Favorites';
 import Messages from './pages/Messages';
 import Checkout from './pages/Checkout';
+import AIRecommendations from './pages/AIRecommendations';
+
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -69,7 +74,12 @@ const CustomerRoute = ({ children }) => {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={<Landing />} />
+      <Route path="/role-selection" element={<RoleSelection />} />
+      <Route path="/search" element={<Home />} />
+      <Route path="/nearby" element={<NearbyServices />} />
+      <Route path="/login" element={<RoleSelection />} />
+      <Route path="/register" element={<RoleSelection />} />
       <Route path="/login/customer" element={<LoginCustomer />} />
       <Route path="/login/provider" element={<LoginProvider />} />
       <Route path="/register/customer" element={<RegisterCustomer />} />
@@ -144,6 +154,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Checkout />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/recommendations"
+        element={
+          <PrivateRoute>
+            <AIRecommendations />
           </PrivateRoute>
         }
       />

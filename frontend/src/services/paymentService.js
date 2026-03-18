@@ -21,6 +21,16 @@ export const paymentService = {
     return response.data;
   },
 
+  createRazorpayOrder: async (bookingId) => {
+    const response = await api.post('/payments/razorpay/create-order', { bookingId });
+    return response.data;
+  },
+
+  verifyRazorpayPayment: async (paymentDetails) => {
+    const response = await api.post('/payments/razorpay/verify', paymentDetails);
+    return response.data;
+  },
+
   processLegacy: async (bookingId, paymentMethod, transactionId) => {
     const response = await api.post('/payments/process', {
       bookingId,
