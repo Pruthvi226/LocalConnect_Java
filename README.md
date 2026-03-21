@@ -204,9 +204,6 @@ mysql -u your_username -p servicehub < database/schema.sql
 - CORS configuration
 - Input validation and sanitization
 
-## 📄 License
-
-This project is licensed under the MIT License.
 
 ## 👥 Contributing
 
