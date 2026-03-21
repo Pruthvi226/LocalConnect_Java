@@ -192,7 +192,9 @@ const MapSearch = ({ services, center = defaultCenter, onMarkerClick }) => {
             <div className="flex justify-between items-center text-sm font-semibold">
               <span className="text-emerald-600">${selectedService.price}</span>
               {selectedService.isAvailableNow && (
-                 <span className="text-xs bg-emerald-100 text-emerald-800 px-1 py-0.5 rounded">30 Min</span>
+                 <span className="text-xs bg-emerald-100 text-emerald-800 px-1 py-0.5 rounded font-black flex items-center gap-1 border border-emerald-200 shadow-sm ml-2">
+                    ⚡ {selectedService.distanceKm ? `${Math.round(selectedService.distanceKm * 5 + 15)} Min ETA` : '30 Min ETA'}
+                 </span>
               )}
             </div>
           </div>

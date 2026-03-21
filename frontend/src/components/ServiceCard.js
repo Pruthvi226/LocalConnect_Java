@@ -57,12 +57,17 @@ const ServiceCard = ({ service }) => {
       {/* Availability Badge */}
       <div className="absolute top-3 left-3 z-20">
         <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md border shadow-sm ${
+          service.isAvailableNow ? 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20' : 
           service.isAvailable 
-            ? 'bg-green-500/10 text-green-600 border-green-500/20' 
+            ? 'bg-green-500/10 text-green-700 border-green-500/20' 
             : 'bg-slate-500/10 text-slate-500 border-slate-500/20'
         }`}>
-          <div className={`w-1.5 h-1.5 rounded-full ${service.isAvailable ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></div>
-          {service.isAvailable ? 'Now Available' : 'Waitlist Only'}
+          <div className={`w-1.5 h-1.5 rounded-full ${service.isAvailableNow ? 'bg-indigo-500 animate-pulse' : service.isAvailable ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></div>
+          {service.isAvailableNow && service.distanceKm 
+             ? `⚡ ${Math.round(service.distanceKm * 5 + 15)} Min ETA` 
+             : service.isAvailableNow 
+               ? '⚡ Instant Now' 
+               : service.isAvailable ? 'Now Available' : 'Waitlist Only'}
         </div>
       </div>
 

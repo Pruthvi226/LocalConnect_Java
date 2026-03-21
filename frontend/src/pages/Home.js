@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search, MapPin, Star, Sparkles, 
   SlidersHorizontal, X, ArrowRight,
-  Navigation, Zap, Filter, Info
+  Navigation, Zap, Filter, Info,
+  BrainCircuit, Camera, ChevronRight, ShieldCheck
 } from 'lucide-react';
 import ServiceCard from '../components/ServiceCard';
 import { serviceService } from '../services/serviceService';
 import { ServiceCardSkeleton } from '../components/Skeleton';
+import api from '../services/api';
 
 const Home = () => {
+  const navigate = useNavigate();
   const [services, setServices] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -22,6 +26,36 @@ const Home = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+
+  // AI Diagnosis State
+  const [showDiagnosis, setShowDiagnosis] = useState(false);
+  const [diagnosisDesc, setDiagnosisDesc] = useState('');
+  const [diagnosisImageUrl, setDiagnosisImageUrl] = useState('');
+  const [diagnosisLoading, setDiagnosisLoading] = useState(false);
+  const [diagnosisResult, setDiagnosisResult] = useState(null);
+
+  const handleAIDiagnose = async () => {
+    if (!diagnosisDesc.trim()) return;
+    setDiagnosisLoading(true);
+    setDiagnosisResult(null);
+    try {
+      const res = await api.post('/ai/diagnose', { description: diagnosisDesc, imageUrl: diagnosisImageUrl });
+      setDiagnosisResult(res.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDiagnosisLoading(false);
+    }
+  };
+
+  const handleDiagnosisSearch = () => {
+    if (diagnosisResult?.category) {
+      setShowDiagnosis(false);
+      setSelectedCategory(diagnosisResult.category);
+      setDiagnosisDesc('');
+      setDiagnosisResult(null);
+    }
+  };
 
   useEffect(() => {
     loadCategories();
@@ -335,6 +369,122 @@ const Home = () => {
            </div>
         </section>
       </div>
+
+      {/* AI Diagnose Floating Button */}
+      <motion.button
+        initial={{ x: 100, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        onClick={() => setShowDiagnosis(true)}
+        className="fixed bottom-8 right-8 z-50 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-indigo-500/30 flex items-center gap-3 font-black text-sm active:scale-95 transition-all group"
+      >
+        <BrainCircuit className="w-6 h-6 group-hover:animate-pulse" />
+        <span className="hidden sm:block">Diagnose My Problem</span>
+      </motion.button>
+
+      {/* AI Diagnosis Modal */}
+      <AnimatePresence>
+        {showDiagnosis && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center p-4"
+            onClick={(e) => e.target === e.currentTarget && setShowDiagnosis(false)}
+          >
+            <motion.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              className="bg-white rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center">
+                    <BrainCircuit className="w-7 h-7 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900">AI Problem Diagnosis</h2>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Powered by ProxiSense AI</p>
+                  </div>
+                </div>
+                <button onClick={() => { setShowDiagnosis(false); setDiagnosisResult(null); setDiagnosisDesc(''); }}
+                  className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {!diagnosisResult ? (
+                <div className="space-y-4">
+                  <textarea
+                    rows={4}
+                    placeholder="Describe your problem... e.g. 'My kitchen pipe is leaking under the sink' or 'AC not cooling properly'"
+                    value={diagnosisDesc}
+                    onChange={e => setDiagnosisDesc(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-slate-700 font-medium text-sm focus:outline-none focus:border-indigo-300 resize-none"
+                  />
+                  <input
+                    type="url"
+                    placeholder="Image URL (optional) — helps AI identify the problem"
+                    value={diagnosisImageUrl}
+                    onChange={e => setDiagnosisImageUrl(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm font-medium text-slate-600 focus:outline-none focus:border-indigo-300"
+                  />
+                  <button
+                    onClick={handleAIDiagnose}
+                    disabled={diagnosisLoading || !diagnosisDesc.trim()}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    {diagnosisLoading ? (
+                      <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Analyzing...</>
+                    ) : (
+                      <><BrainCircuit className="w-5 h-5" /> Diagnose Problem</>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                  {/* Result */}
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-6">
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Diagnosis Result</p>
+                    <h3 className="text-xl font-black text-slate-900 mb-1">{diagnosisResult.problemTitle}</h3>
+                    <p className="text-sm text-slate-500 font-medium mb-4">{diagnosisResult.explanation}</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-white rounded-xl p-3 text-center border border-indigo-50">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Category</p>
+                        <p className="font-black text-indigo-600 text-sm mt-1">{diagnosisResult.category}</p>
+                      </div>
+                      <div className="bg-white rounded-xl p-3 text-center border border-indigo-50">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Est. Cost</p>
+                        <p className="font-black text-emerald-600 text-sm mt-1">₹{diagnosisResult.minPrice}–{diagnosisResult.maxPrice}</p>
+                      </div>
+                      <div className="bg-white rounded-xl p-3 text-center border border-indigo-50">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Confidence</p>
+                        <p className="font-black text-slate-700 text-sm mt-1">{(diagnosisResult.confidence * 100).toFixed(0)}%</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setDiagnosisResult(null); setDiagnosisDesc(''); }}
+                      className="flex-1 py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-50"
+                    >
+                      Retry
+                    </button>
+                    <button
+                      onClick={handleDiagnosisSearch}
+                      className="flex-2 flex-grow bg-indigo-600 text-white font-black py-3 px-6 rounded-2xl flex items-center justify-center gap-2 hover:bg-indigo-700 active:scale-95 shadow-lg shadow-indigo-500/20 transition-all"
+                    >
+                      Find {diagnosisResult.category} Experts <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

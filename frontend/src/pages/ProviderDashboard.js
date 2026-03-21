@@ -256,25 +256,28 @@ const ProviderDashboard = () => {
                                     </button>
                                   ) : (
                                      <div className="flex flex-col gap-3">
-                                        <div className="flex flex-col gap-2">
-                                           <input 
-                                              type="url" 
-                                              placeholder="Before Image URL" 
-                                              className="text-xs p-3 rounded-xl bg-slate-50 border border-slate-100 focus:outline-none focus:border-primary-300"
-                                              value={proofImages[booking.id]?.before || ''}
-                                              onChange={(e) => setProofImages({...proofImages, [booking.id]: {...proofImages[booking.id], before: e.target.value}})}
-                                           />
-                                           <input 
-                                              type="url" 
-                                              placeholder="After Image URL (Proof)" 
-                                              className="text-xs p-3 rounded-xl bg-slate-50 border border-slate-100 focus:outline-none focus:border-primary-300"
-                                              value={proofImages[booking.id]?.after || ''}
-                                              onChange={(e) => setProofImages({...proofImages, [booking.id]: {...proofImages[booking.id], after: e.target.value}})}
-                                           />
-                                        </div>
-                                        <div className="flex items-center gap-2 text-green-600 font-black text-xs uppercase tracking-widest bg-green-50 px-6 py-4 rounded-2xl border border-green-100">
-                                           <CheckCircle2 className="w-4 h-4" /> Fulfilling Job
-                                        </div>
+                                         <div className="flex flex-col gap-2">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                               <ShieldCheck className="w-3.5 h-3.5 text-green-500" /> ProxiSense Proof (Before / After)
+                                            </p>
+                                            <input 
+                                               type="url" 
+                                               placeholder="Before Image URL" 
+                                               className="text-xs p-3 rounded-xl bg-slate-50 border border-slate-100 focus:outline-none focus:border-primary-300"
+                                               value={proofImages[booking.id]?.before || ''}
+                                               onChange={(e) => setProofImages({...proofImages, [booking.id]: {...proofImages[booking.id], before: e.target.value}})}
+                                            />
+                                            <input 
+                                               type="url" 
+                                               placeholder="After Image URL (Proof of Work)" 
+                                               className="text-xs p-3 rounded-xl bg-slate-50 border border-green-100 focus:outline-none focus:border-green-400 border-2"
+                                               value={proofImages[booking.id]?.after || ''}
+                                               onChange={(e) => setProofImages({...proofImages, [booking.id]: {...proofImages[booking.id], after: e.target.value}})}
+                                            />
+                                         </div>
+                                         <div className="flex items-center gap-2 text-green-600 font-black text-xs uppercase tracking-widest bg-green-50 px-6 py-4 rounded-2xl border border-green-100">
+                                            <CheckCircle2 className="w-4 h-4" /> Fulfilling Job
+                                         </div>
                                      </div>
                                   )}
                                   <div className="flex gap-2">

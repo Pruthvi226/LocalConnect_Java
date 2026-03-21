@@ -16,6 +16,11 @@ public class UserProfileDto {
     private String bio;
     private String profileImageUrl;
     private LocalDateTime createdAt;
+    
+    private Integer trustScore;
+    private Double completionRate;
+    private Double onTimePerformance;
+    private Double cancellationRate;
 
     public UserProfileDto() {}
 
@@ -31,6 +36,11 @@ public class UserProfileDto {
         dto.setBio(user.getBio());
         dto.setProfileImageUrl(user.getProfileImageUrl());
         dto.setCreatedAt(user.getCreatedAt());
+        
+        dto.setTrustScore(user.getTrustScore());
+        dto.setCompletionRate(user.getCompletionRate());
+        dto.setOnTimePerformance(user.getOnTimePerformance());
+        dto.setCancellationRate(user.getCancellationRate());
         return dto;
     }
 
@@ -55,4 +65,13 @@ public class UserProfileDto {
     public void setProfileImageUrl(String profileImageUrl) { this.profileImageUrl = profileImageUrl; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    
+    public Integer getTrustScore() { return trustScore; }
+    public void setTrustScore(Integer trustScore) { this.trustScore = trustScore; }
+    public Double getCompletionRate() { return completionRate; }
+    public void setCompletionRate(Double completionRate) { this.completionRate = completionRate; }
+    public Double getOnTimePerformance() { return onTimePerformance; }
+    public void setOnTimePerformance(Double onTimePerformance) { this.onTimePerformance = onTimePerformance; }
+    public Double getCancellationRate() { return cancellationRate; }
+    public void setCancellationRate(Double cancellationRate) { this.cancellationRate = cancellationRate; }
 }

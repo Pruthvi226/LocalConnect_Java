@@ -35,6 +35,9 @@ public class BookingService {
     @Autowired
     NotificationService notificationService;
 
+    @Autowired
+    UserService userService;
+
     public List<BookingDto> getUserBookings() {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
@@ -191,11 +194,13 @@ public class BookingService {
                 notificationService.createNotification(customer, "Booking Completed",
                         "Booking #" + saved.getId() + " has been marked completed.",
                         Notification.NotificationType.BOOKING_COMPLETED, saved.getId());
+                userService.recalculateTrustScore(provider.getId());
             } else if (saved.getStatus() == BookingStatus.CANCELLED) {
                 User toNotify = currentUser.getId().equals(provider.getId()) ? customer : provider;
                 notificationService.createNotification(toNotify, "Booking Cancelled",
                         "Booking #" + saved.getId() + " has been cancelled.",
                         Notification.NotificationType.BOOKING_CANCELLED, saved.getId());
+                userService.recalculateTrustScore(provider.getId());
             }
         }
 
@@ -228,6 +233,8 @@ public class BookingService {
                 Notification.NotificationType.BOOKING_CANCELLED,
                 booking.getId()
         );
+
+        userService.recalculateTrustScore(booking.getService().getProvider().getId());
     }
 
     public Optional<BookingDto> getBookingById(Long id) {

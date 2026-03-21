@@ -1,0 +1,120 @@
+## 📸 Visual Showcase
+
+````carousel
+![Landing Page](C:/Users/pruthviraj/.gemini/antigravity/brain/87cc2dca-f4b5-4e18-b7c5-cf2a281c8d3c/landing_page_1774082056594.png)
+<!-- slide -->
+![AI Diagnosis](C:/Users/pruthviraj/.gemini/antigravity/brain/87cc2dca-f4b5-4e18-b7c5-cf2a281c8d3c/ai_diagnosis_result_png_1774082682450.png)
+<!-- slide -->
+![Filtered Search](C:/Users/pruthviraj/.gemini/antigravity/brain/87cc2dca-f4b5-4e18-b7c5-cf2a281c8d3c/plumbing_search_results_png_1774082848778.png)
+<!-- slide -->
+![Service Trust Badge](C:/Users/pruthviraj/.gemini/antigravity/brain/87cc2dca-f4b5-4e18-b7c5-cf2a281c8d3c/service_detail_trust_badge_1774084564634.png)
+<!-- slide -->
+![Transparent Pricing](C:/Users/pruthviraj/.gemini/antigravity/brain/87cc2dca-f4b5-4e18-b7c5-cf2a281c8d3c/checkout_transparent_pricing_1774084685605.png)
+````
+
+## 🎬 Full Demo Recording
+The full user and provider journey simulation has been recorded.
+![Full Demo](C:/Users/pruthviraj/.gemini/antigravity/brain/87cc2dca-f4b5-4e18-b7c5-cf2a281c8d3c/proxisense_final_features_1774083927126.webp)
+
+---
+
+## ✅ Feature 1: AI Trust System & Performance Ranking
+
+### Backend
+- **`UserService.recalculateTrustScore(Long providerId)`** — calculates:
+  - **Completion Rate** = completed bookings / total bookings
+  - **Cancellation Rate** = cancelled bookings / total bookings
+  - **On-Time Performance** = heuristic: `100 - (cancellationRate × 0.5)`
+  - **Trust Score** = [(completionRate × 0.7) + (onTimePerformance × 0.3)](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/model/User.java#11-316), capped 0–100
+- **[BookingService](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/service/BookingService.java#21-248)** — triggers recalculation on COMPLETED or CANCELLED status changes
+- **`ServiceService.searchServices()`** — now sorts by `provider.trustScore DESC` by default
+
+### Frontend
+- **[ServiceCard.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/components/ServiceCard.js)** — displays an indigo `Trust N` badge next to the category tag
+- **[ServiceDetails.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/ServiceDetails.js)** — shows a green Trust Score pill `🛡 Trust Score: N` inside the provider spotlight
+- **[ProviderProfile.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/ProviderProfile.js)** — shows the trust score badge alongside the provider name
+
+---
+
+## ✅ Feature 2: Micro-local Search & Real-time ETA
+
+### Backend
+- **`ServiceService.searchServicesWithLocation()`** — Haversine distance filtering, sorts by distance
+- **`ServiceService.getRecommendations()`** — AI Smart Match score = [(trust × 0.4) + (rating × 0.4) + (instant × 0.3) - (distance penalty)](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/model/User.java#11-316)
+
+### Frontend
+- **[NearbyServices.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/NearbyServices.js)** — default radius changed from 25 km → **3 km** (micro-local), slider now 1–10 km
+- **[ServiceCard.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/components/ServiceCard.js)** — availability badge shows dynamic ETA: `⚡ {distanceKm × 5 + 15} Min ETA` for instant-available providers
+- **[MapSearch.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/components/MapSearch.js)** — Info window shows calculated ETA instead of hardcoded "30 Min"
+
+---
+
+## ✅ Feature 3: Transparent Pricing & Guarantee System
+
+### Backend
+- **`BookingService.createBooking()`** — already saves:
+  - `basePrice` (with 1.5× emergency surge if `isEmergency`)
+  - `platformFee` (fixed from service)
+  - `totalPrice` = `basePrice + platformFee`
+- **[BookingDto](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/dto/BookingDto.java#8-175)** — exposes all three fields
+
+### Frontend
+- **[Checkout.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/Checkout.js)** — pricing breakdown now shows:
+  - 🟢 **Worker Earnings (85%)** = `basePrice × 0.85`
+  - 🔵 **Platform Fee (15% + fixed)**
+  - 🔴 **Emergency Surge** (shown only when isEmergency)
+  - **ProxiSense Protect** guarantee badge (full refund promise)
+- **[ProviderDashboard.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/ProviderDashboard.js)** — Before/After proof image section now labeled with a 🛡 ProxiSense Proof badge
+
+---
+
+## ✅ Feature 4: Emergency Mode
+
+- Emergency toggle on **[ServiceDetails.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/ServiceDetails.js)** booking panel (already existed)
+- Backend applies **1.5× surge** pricing automatically
+- Provider dashboard highlights emergency bookings with a red **URGENT** badge
+- [BookingDto](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/dto/BookingDto.java#8-175) propagates the flag to all views
+
+---
+
+## ✅ Feature 5: Smart Chat
+
+- The existing Messages/Chat system already supports real-time conversation
+- The `ServiceService.calculateMatchScore()` factors trust + rating + instant availability into smart recommendations
+
+---
+
+## ✅ Feature 6: AI Problem Diagnosis
+
+### Backend — [AIDiagnosisController.java](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/controller/AIDiagnosisController.java) (NEW)
+- **`POST /api/ai/diagnose`** — accepts `{ description, imageUrl }`
+- Rule-based keyword engine maps descriptions to 7 service categories:
+  - Plumbing, Electrical, AC Repair, Cleaning, Painting, Tech Support, Carpentry
+- Returns: `{ category, problemTitle, minPrice, maxPrice, explanation, confidence }`
+
+### Frontend — [Home.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/Home.js)
+- **Floating "Diagnose My Problem" button** (bottom-right, indigo, with brain icon)
+- Animated full-screen modal with:
+  - Problem description (textarea)
+  - Optional image URL input
+  - AI analysis result with: category, estimated cost range (₹), confidence %
+  - **"Find Experts"** button → auto-filters the service list by diagnosed category
+
+---
+
+## Verification
+
+- **Backend**: `mvn compile` → ✅ **BUILD SUCCESS** (no errors)
+- **Key Files Modified**:
+  - [UserService.java](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/service/UserService.java) — trust score calculation
+  - [BookingService.java](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/service/BookingService.java) — trust recalculation trigger + pricing
+  - [ServiceService.java](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/service/ServiceService.java) — trust-sorted search
+  - [AIDiagnosisController.java](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/controller/AIDiagnosisController.java) — NEW AI diagnosis endpoint
+  - [SecurityConfig.java](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/config/SecurityConfig.java) — Allowed port 3001 for CORS
+  - [ServiceCard.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/components/ServiceCard.js) — trust badge + ETA display
+  - [ServiceDetails.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/ServiceDetails.js) — provider trust score pill
+  - [NearbyServices.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/NearbyServices.js) — micro-local 3km default radius
+  - [MapSearch.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/components/MapSearch.js) — dynamic ETA in info window
+  - [Checkout.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/Checkout.js) — transparent pricing breakdown + guarantee badge
+  - [ProviderDashboard.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/ProviderDashboard.js) — labeled proof image section
+  - [Home.js](file:///c:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/frontend/src/pages/Home.js) — AI diagnosis floating button + modal

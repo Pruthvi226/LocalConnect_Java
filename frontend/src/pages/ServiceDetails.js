@@ -211,7 +211,15 @@ const ServiceDetails = () => {
                   </div>
                   <div className="text-center md:text-left">
                      <p className="text-primary-200 font-black uppercase tracking-widest text-xs mb-1">Service Provider</p>
-                     <h3 className="text-3xl font-black mb-2">{service.provider?.fullName || 'ProxiSense Expert'}</h3>
+                     <h3 className="text-3xl font-black mb-2 flex flex-wrap items-center gap-3 justify-center md:justify-start">
+                        {service.provider?.fullName || 'ProxiSense Expert'}
+                        {service.provider?.trustScore != null && (
+                          <span className="bg-green-500 text-white text-sm px-3 py-1 rounded-xl font-bold border border-green-400 shadow-sm flex items-center gap-1">
+                             <ShieldCheck className="w-4 h-4" />
+                             Trust Score: {service.provider.trustScore}
+                          </span>
+                        )}
+                     </h3>
                      <p className="text-primary-100 font-medium mb-6 opacity-80">
                         Top-rated professional with {Math.floor(Math.random() * 5) + 3} years of local experience. 
                         Identity and licenses verified by ProxiSense.

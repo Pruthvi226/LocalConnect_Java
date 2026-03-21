@@ -30,6 +30,10 @@ public class ServiceService {
 
     public Page<ServiceDto> searchServices(String category, String location, Double minPrice,
                                         Double maxPrice, Double minRating, Boolean isAvailableNow, Pageable pageable) {
+        if (pageable.getSort().isUnsorted()) {
+            pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), 
+                    org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "provider.trustScore"));
+        }
         return serviceRepository.searchServices(category, location, minPrice, maxPrice, minRating, isAvailableNow, pageable)
                 .map(this::convertToDto);
     }

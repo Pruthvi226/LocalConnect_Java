@@ -17,7 +17,7 @@ const NearbyServices = () => {
   const [userLocation, setUserLocation] = useState(null); // {latitude, longitude, address}
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [distanceRange, setDistanceRange] = useState(25);
+  const [distanceRange, setDistanceRange] = useState(3);
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeServiceId, setActiveServiceId] = useState(null);
   const [instantMode, setInstantMode] = useState(false);
@@ -139,7 +139,7 @@ const NearbyServices = () => {
                    Geospatial Discovery
                 </div>
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                  Nearby <span className="text-primary-600">Experts.</span>
+                  Micro-Local <span className="text-primary-600">Experts.</span>
                 </h1>
               </div>
 
@@ -158,7 +158,7 @@ const NearbyServices = () => {
                        </div>
                        <input 
                          type="range" 
-                         min="5" max="100" step="5"
+                         min="1" max="10" step="1"
                          value={distanceRange}
                          onChange={(e) => setDistanceRange(e.target.value)}
                          className="w-full h-1.5 bg-slate-100 rounded-full appearance-none cursor-pointer accent-primary-600"
