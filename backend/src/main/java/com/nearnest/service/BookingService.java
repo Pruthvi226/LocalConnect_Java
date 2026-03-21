@@ -62,7 +62,7 @@ public class BookingService {
     }
 
     @Transactional
-    public BookingDto createBooking(Long serviceId, LocalDateTime bookingDate, String notes) {
+    public BookingDto createBooking(Long serviceId, LocalDateTime bookingDate, String notes, Boolean isEmergency, String problemImageUrl) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
@@ -91,6 +91,20 @@ public class BookingService {
         booking.setBookingDate(bookingDate);
         booking.setStatus(BookingStatus.PENDING_PAYMENT);
         booking.setNotes(notes);
+        booking.setIsEmergency(isEmergency != null ? isEmergency : false);
+        booking.setProblemImageUrl(problemImageUrl);
+
+        // Snapshot pricing with Dynamic Surge
+        Double basePrice = service.getPrice().doubleValue();
+        if (Boolean.TRUE.equals(isEmergency)) {
+            basePrice = basePrice * 1.5; // 50% Emergency Surge
+            // Round to 2 decimal places
+            basePrice = Math.round(basePrice * 100.0) / 100.0;
+        }
+        Double platformFee = service.getPlatformFee() != null ? service.getPlatformFee() : 50.0;
+        booking.setBasePrice(basePrice);
+        booking.setPlatformFee(platformFee);
+        booking.setTotalPrice(Math.round((basePrice + platformFee) * 100.0) / 100.0);
 
         Booking savedBooking = bookingRepository.save(booking);
 
@@ -116,6 +130,13 @@ public class BookingService {
 
     @Transactional
     public BookingDto updateBooking(Long id, BookingStatus status, String notes) {
+        return updateBooking(id, status, notes, null, null, null, null, null);
+    }
+
+    @Transactional
+    public BookingDto updateBooking(Long id, BookingStatus status, String notes, 
+                                    String beforeImageUrl, String afterImageUrl,
+                                    Double providerLat, Double providerLng, Integer etaMinutes) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
 
@@ -139,6 +160,21 @@ public class BookingService {
         }
         if (notes != null) {
             booking.setNotes(notes);
+        }
+        if (beforeImageUrl != null) {
+            booking.setBeforeImageUrl(beforeImageUrl);
+        }
+        if (afterImageUrl != null) {
+            booking.setAfterImageUrl(afterImageUrl);
+        }
+        if (providerLat != null) {
+            booking.setProviderLat(providerLat);
+        }
+        if (providerLng != null) {
+            booking.setProviderLng(providerLng);
+        }
+        if (etaMinutes != null) {
+            booking.setEtaMinutes(etaMinutes);
         }
 
         Booking saved = bookingRepository.save(booking);

@@ -29,8 +29,8 @@ public class ServiceService {
     }
 
     public Page<ServiceDto> searchServices(String category, String location, Double minPrice,
-                                        Double maxPrice, Double minRating, Pageable pageable) {
-        return serviceRepository.searchServices(category, location, minPrice, maxPrice, minRating, pageable)
+                                        Double maxPrice, Double minRating, Boolean isAvailableNow, Pageable pageable) {
+        return serviceRepository.searchServices(category, location, minPrice, maxPrice, minRating, isAvailableNow, pageable)
                 .map(this::convertToDto);
     }
 
@@ -39,18 +39,19 @@ public class ServiceService {
                                                      Double minPrice,
                                                      Double maxPrice,
                                                      Double minRating,
+                                                     Boolean isAvailableNow,
                                                      Double userLat,
                                                      Double userLng,
                                                      Double maxDistanceKm,
                                                      Pageable pageable) {
         // Fallback to regular search when location is not provided
         if (userLat == null || userLng == null) {
-            return searchServices(category, location, minPrice, maxPrice, minRating, pageable);
+            return searchServices(category, location, minPrice, maxPrice, minRating, isAvailableNow, pageable);
         }
 
         // Fetch a larger set for in-memory distance calculation (Production normally uses Spatial DB)
         // For this demo, we'll fetch up to 100 nearby items and handle pagination manually or return the sorted list
-        List<Service> base = serviceRepository.searchServices(category, location, minPrice, maxPrice, minRating, PageRequest.of(0, 500)).getContent();
+        List<Service> base = serviceRepository.searchServices(category, location, minPrice, maxPrice, minRating, isAvailableNow, PageRequest.of(0, 500)).getContent();
 
         // Compute distance using Haversine formula and filter/sort in-memory.
         List<ServiceDto> results = base.stream()
@@ -78,6 +79,37 @@ public class ServiceService {
                         Math.sin(dLon / 2) * Math.sin(dLon / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
+    }
+
+    // Phase 2: Smart Matching Recommendations
+    public Page<ServiceDto> getRecommendations(Double userLat, Double userLng, Pageable pageable) {
+        List<Service> base = serviceRepository.findAll();
+        
+        List<ServiceDto> results = base.stream()
+                .peek(s -> {
+                    if (userLat != null && userLng != null && s.getLatitude() != null && s.getLongitude() != null) {
+                        s.setDistanceKm(haversineDistanceKm(userLat, userLng, s.getLatitude(), s.getLongitude()));
+                    } else {
+                        s.setDistanceKm(10.0); // default simulated distance
+                    }
+                })
+                .map(this::convertToDto)
+                .sorted((d1, d2) -> Double.compare(calculateMatchScore(d2), calculateMatchScore(d1))) // Descending
+                .collect(Collectors.toList());
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), results.size());
+        List<ServiceDto> pagedList = results.subList(Math.max(0, Math.min(start, results.size())), end);
+        return new PageImpl<>(pagedList, pageable, results.size());
+    }
+
+    private double calculateMatchScore(ServiceDto dto) {
+        double trustNorm = (dto.getProvider() != null && dto.getProvider().getTrustScore() != null) ? (dto.getProvider().getTrustScore() / 100.0) : 0.8;
+        double ratingNorm = (dto.getAverageRating() != null) ? (dto.getAverageRating() / 5.0) : 0.8;
+        double distPenalty = (dto.getDistanceKm() != null) ? (dto.getDistanceKm() * 0.05) : 0.5;
+        double instantBonus = Boolean.TRUE.equals(dto.getIsAvailableNow()) ? 0.3 : 0.0;
+
+        return (trustNorm * 0.4) + (ratingNorm * 0.4) + instantBonus - distPenalty;
     }
 
     public Page<ServiceDto> searchByQuery(String query, Pageable pageable) {
@@ -130,6 +162,8 @@ public class ServiceService {
         if (serviceDetails.getLongitude() != null) service.setLongitude(serviceDetails.getLongitude());
         if (serviceDetails.getImageUrl() != null) service.setImageUrl(serviceDetails.getImageUrl());
         if (serviceDetails.getIsAvailable() != null) service.setIsAvailable(serviceDetails.getIsAvailable());
+        if (serviceDetails.getIsAvailableNow() != null) service.setIsAvailableNow(serviceDetails.getIsAvailableNow());
+        if (serviceDetails.getPlatformFee() != null) service.setPlatformFee(serviceDetails.getPlatformFee());
 
         Service updated = serviceRepository.save(service);
         return convertToDto(updated);

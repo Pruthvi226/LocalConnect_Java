@@ -44,8 +44,10 @@ public class BookingController {
     public ResponseEntity<BookingDto> createBooking(
             @RequestParam(name = "serviceId") Long serviceId,
             @RequestParam(name = "bookingDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime bookingDate,
-            @RequestParam(name = "notes", required = false) String notes) {
-        return ResponseEntity.ok(bookingService.createBooking(serviceId, bookingDate, notes));
+            @RequestParam(name = "notes", required = false) String notes,
+            @RequestParam(name = "isEmergency", required = false) Boolean isEmergency,
+            @RequestParam(name = "problemImageUrl", required = false) String problemImageUrl) {
+        return ResponseEntity.ok(bookingService.createBooking(serviceId, bookingDate, notes, isEmergency, problemImageUrl));
     }
 
     @PostMapping("/create")
@@ -53,7 +55,9 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.createBooking(
                 request.getServiceId(),
                 request.getBookingDate(),
-                request.getNotes()
+                request.getNotes(),
+                request.getIsEmergency(),
+                request.getProblemImageUrl()
         ));
     }
 
@@ -61,8 +65,13 @@ public class BookingController {
     public ResponseEntity<BookingDto> updateBooking(
             @PathVariable(name = "id") Long id,
             @RequestParam(name = "status", required = false) BookingStatus status,
-            @RequestParam(name = "notes", required = false) String notes) {
-        return ResponseEntity.ok(bookingService.updateBooking(id, status, notes));
+            @RequestParam(name = "notes", required = false) String notes,
+            @RequestParam(name = "beforeImageUrl", required = false) String beforeImageUrl,
+            @RequestParam(name = "afterImageUrl", required = false) String afterImageUrl,
+            @RequestParam(name = "providerLat", required = false) Double providerLat,
+            @RequestParam(name = "providerLng", required = false) Double providerLng,
+            @RequestParam(name = "etaMinutes", required = false) Integer etaMinutes) {
+        return ResponseEntity.ok(bookingService.updateBooking(id, status, notes, beforeImageUrl, afterImageUrl, providerLat, providerLng, etaMinutes));
     }
 
     @DeleteMapping("/{id}")

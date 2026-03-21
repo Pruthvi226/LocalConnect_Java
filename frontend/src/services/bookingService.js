@@ -11,11 +11,13 @@ export const bookingService = {
     return response.data;
   },
 
-  create: async (serviceId, bookingDate, notes) => {
+  create: async (serviceId, bookingDate, notes, isEmergency, problemImageUrl) => {
     const payload = {
       serviceId,
       bookingDate: bookingDate.toISOString().split('.')[0], // Removes .SSSZ for LocalDateTime
       notes: notes || '',
+      isEmergency: isEmergency || false,
+      problemImageUrl: problemImageUrl || '',
     };
     const response = await api.post('/bookings/create', payload);
     return response.data;

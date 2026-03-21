@@ -56,6 +56,26 @@ public class User {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // Smart Trust System Metrics (Phase 2)
+    @Column(name = "trust_score")
+    private Integer trustScore = 100;
+
+    @Column(name = "completion_rate")
+    private Double completionRate = 100.0;
+
+    @Column(name = "on_time_performance")
+    private Double onTimePerformance = 100.0;
+
+    @Column(name = "cancellation_rate")
+    private Double cancellationRate = 0.0;
+
+    // Safety System (Phase 2)
+    @Column(name = "emergency_contact_name")
+    private String emergencyContactName;
+
+    @Column(name = "emergency_contact_phone")
+    private String emergencyContactPhone;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private Set<Booking> bookings = new HashSet<>();
 
@@ -239,6 +259,54 @@ public class User {
 
     public void setProfileImageUrl(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
+    }
+
+    public Integer getTrustScore() {
+        return trustScore;
+    }
+
+    public void setTrustScore(Integer trustScore) {
+        this.trustScore = trustScore;
+    }
+
+    public Double getCompletionRate() {
+        return completionRate;
+    }
+
+    public void setCompletionRate(Double completionRate) {
+        this.completionRate = completionRate;
+    }
+
+    public Double getOnTimePerformance() {
+        return onTimePerformance;
+    }
+
+    public void setOnTimePerformance(Double onTimePerformance) {
+        this.onTimePerformance = onTimePerformance;
+    }
+
+    public Double getCancellationRate() {
+        return cancellationRate;
+    }
+
+    public void setCancellationRate(Double cancellationRate) {
+        this.cancellationRate = cancellationRate;
+    }
+
+    public String getEmergencyContactName() {
+        return emergencyContactName;
+    }
+
+    public void setEmergencyContactName(String emergencyContactName) {
+        this.emergencyContactName = emergencyContactName;
+    }
+
+    public String getEmergencyContactPhone() {
+        return emergencyContactPhone;
+    }
+
+    public void setEmergencyContactPhone(String emergencyContactPhone) {
+        this.emergencyContactPhone = emergencyContactPhone;
     }
 
     public enum Role {

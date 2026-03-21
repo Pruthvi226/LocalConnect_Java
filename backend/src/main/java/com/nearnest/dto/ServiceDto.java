@@ -12,6 +12,8 @@ public class ServiceDto {
     private BigDecimal price;
     private String location;
     private Boolean isAvailable;
+    private Boolean isAvailableNow;
+    private Double platformFee;
     private Long providerId;
     private String providerName;
     private Double averageRating;
@@ -36,6 +38,8 @@ public class ServiceDto {
         dto.setPrice(s.getPrice());
         dto.setLocation(s.getLocation());
         dto.setIsAvailable(s.getIsAvailable());
+        dto.setIsAvailableNow(s.getIsAvailableNow());
+        dto.setPlatformFee(s.getPlatformFee());
         dto.setImageUrl(s.getImageUrl());
         if (s.getProvider() != null) {
             dto.setProviderId(s.getProvider().getId());
@@ -43,6 +47,7 @@ public class ServiceDto {
             ProviderInfo prov = new ProviderInfo();
             prov.setId(s.getProvider().getId());
             prov.setFullName(s.getProvider().getFullName());
+            prov.setTrustScore(s.getProvider().getTrustScore());
             dto.setProvider(prov);
         }
         dto.setAverageRating(s.getAverageRating());
@@ -58,11 +63,14 @@ public class ServiceDto {
     public static class ProviderInfo {
         private Long id;
         private String fullName;
+        private Integer trustScore;
 
         public Long getId() { return id; }
         public void setId(Long id) { this.id = id; }
         public String getFullName() { return fullName; }
         public void setFullName(String fullName) { this.fullName = fullName; }
+        public Integer getTrustScore() { return trustScore; }
+        public void setTrustScore(Integer trustScore) { this.trustScore = trustScore; }
     }
 
     // Getters and Setters
@@ -80,6 +88,10 @@ public class ServiceDto {
     public void setLocation(String location) { this.location = location; }
     public Boolean getIsAvailable() { return isAvailable; }
     public void setIsAvailable(Boolean isAvailable) { this.isAvailable = isAvailable; }
+    public Boolean getIsAvailableNow() { return isAvailableNow; }
+    public void setIsAvailableNow(Boolean isAvailableNow) { this.isAvailableNow = isAvailableNow; }
+    public Double getPlatformFee() { return platformFee; }
+    public void setPlatformFee(Double platformFee) { this.platformFee = platformFee; }
     public Long getProviderId() { return providerId; }
     public void setProviderId(Long providerId) { this.providerId = providerId; }
     public String getProviderName() { return providerName; }

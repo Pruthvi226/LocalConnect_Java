@@ -16,9 +16,14 @@ export const providerService = {
     return response.data;
   },
 
-  updateBookingStatus: async (id, status, notes) => {
+  updateBookingStatus: async (id, status, notes, beforeImageUrl, afterImageUrl) => {
     const response = await api.put(`/provider/bookings/${id}`, null, {
-      params: { status, notes: notes || '' },
+      params: { 
+        status, 
+        notes: notes || '',
+        beforeImageUrl: beforeImageUrl || '',
+        afterImageUrl: afterImageUrl || ''
+      },
     });
     return response.data;
   },

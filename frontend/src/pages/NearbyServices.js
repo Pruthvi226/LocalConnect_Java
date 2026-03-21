@@ -7,7 +7,7 @@ import {
   Maximize2, ArrowUpRight, Zap,
   AlertCircle, LocateFixed, MapPin
 } from 'lucide-react';
-import GoogleMap from '../components/GoogleMap';
+import MapSearch from '../components/MapSearch';
 import ServiceCard from '../components/ServiceCard';
 import LocationSearch from '../components/LocationSearch';
 import { serviceService } from '../services/serviceService';
@@ -20,6 +20,11 @@ const NearbyServices = () => {
   const [distanceRange, setDistanceRange] = useState(25);
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeServiceId, setActiveServiceId] = useState(null);
+  const [instantMode, setInstantMode] = useState(false);
+  const [smartMatchMode, setSmartMatchMode] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   
   const scrollRefs = useRef({});
 
@@ -45,7 +50,8 @@ const NearbyServices = () => {
           address: 'Your Current Location'
         };
         setUserLocation(coords);
-        fetchNearby(coords);
+        setPage(0);
+        fetchNearby(coords, 0, false);
       },
       () => {
         setError('Signal lost. Please enable location access or search for a specific city.');
@@ -57,30 +63,59 @@ const NearbyServices = () => {
 
   const handleLocationSelect = (loc) => {
     setUserLocation(loc);
-    fetchNearby(loc);
+    setPage(0);
+    fetchNearby(loc, 0, false);
   };
 
-  const fetchNearby = async (coords) => {
+  const fetchNearby = async (coords, pageNum = 0, isLoadMore = false) => {
     try {
-      setLoading(true);
-      const data = await serviceService.getAllWithFilters({
+      if (isLoadMore) setLoadingMore(true);
+      else setLoading(true);
+
+      const filters = {
         userLat: coords.latitude,
         userLng: coords.longitude,
         maxDistanceKm: distanceRange,
-        category: activeCategory === 'All' ? '' : activeCategory
-      });
-      setServices(data);
+        category: activeCategory === 'All' ? '' : activeCategory,
+        isAvailableNow: instantMode ? true : undefined,
+        page: pageNum,
+        size: 8
+      };
+      
+      const data = smartMatchMode 
+        ? await serviceService.getRecommendationsPaginated(filters)
+        : await serviceService.getAllPaginated(filters);
+        
+      const items = data.content || data;
+      const isLast = data.last ?? true;
+
+      if (isLoadMore) {
+         setServices(prev => [...prev, ...items]);
+      } else {
+         setServices(items);
+      }
+      setHasMore(!isLast);
       setError('');
     } catch (e) {
       setError('Ecosystem sync failed. Retrying triangulation...');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   useEffect(() => {
-    if (userLocation) fetchNearby(userLocation);
-  }, [distanceRange, activeCategory]);
+    if (userLocation) {
+       setPage(0);
+       fetchNearby(userLocation, 0, false);
+    }
+  }, [distanceRange, activeCategory, instantMode, smartMatchMode]);
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchNearby(userLocation, nextPage, true);
+  };
 
   const handleMarkerClick = (id) => {
     setActiveServiceId(id);
@@ -135,7 +170,7 @@ const NearbyServices = () => {
                  </div>
 
                  <div className="overflow-x-auto invisible-scrollbar flex gap-2 pb-2">
-                    {categories.map((cat) => (
+                     {categories.map((cat) => (
                        <button
                          key={cat}
                          onClick={() => setActiveCategory(cat)}
@@ -146,6 +181,40 @@ const NearbyServices = () => {
                           {cat}
                        </button>
                     ))}
+                 </div>
+                 <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between bg-green-50/80 p-4 border border-green-100 rounded-2xl">
+                       <div className="flex items-center gap-3">
+                          <button 
+                            onClick={() => setInstantMode(!instantMode)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${instantMode ? 'bg-green-500' : 'bg-slate-300'}`}
+                          >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${instantMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                          </button>
+                          <div>
+                             <p className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1">
+                                <Zap className="w-4 h-4 text-green-500" /> Instant Service
+                             </p>
+                             <p className="text-[10px] font-bold text-slate-500">Get an expert at your door in 30 mins</p>
+                          </div>
+                       </div>
+                    </div>
+                    <div className="flex items-center justify-between bg-indigo-50/80 p-4 border border-indigo-100 rounded-2xl">
+                       <div className="flex items-center gap-3">
+                          <button 
+                            onClick={() => setSmartMatchMode(!smartMatchMode)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${smartMatchMode ? 'bg-indigo-500' : 'bg-slate-300'}`}
+                          >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${smartMatchMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                          </button>
+                          <div>
+                             <p className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1">
+                                <ShieldCheck className="w-4 h-4 text-indigo-500" /> Smart Match
+                             </p>
+                             <p className="text-[10px] font-bold text-slate-500">AI-recommended trusted providers first</p>
+                          </div>
+                       </div>
+                    </div>
                  </div>
               </div>
            </div>
@@ -194,8 +263,19 @@ const NearbyServices = () => {
                             <ServiceCard service={service} />
                          </div>
                       ))}
-                   </AnimatePresence>
-                </div>
+                    </AnimatePresence>
+                    {hasMore && (
+                       <button 
+                         onClick={handleLoadMore} 
+                         disabled={loadingMore}
+                         className="w-full py-4 mt-6 bg-white border border-slate-200 shadow-sm rounded-2xl text-slate-500 font-black uppercase tracking-widest text-xs hover:bg-slate-50 transition-colors flex justify-center items-center gap-2"
+                       >
+                         {loadingMore ? (
+                            <><div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div> Scanning...</>
+                         ) : 'Load More Experts'}
+                       </button>
+                    )}
+                 </div>
               )}
            </div>
 
@@ -224,13 +304,10 @@ const NearbyServices = () => {
 
         {/* Immersive Map Container */}
         <main className="flex-1 relative bg-slate-100 overflow-hidden">
-           <GoogleMap 
-             latitude={userLocation?.latitude || 12.9716} 
-             longitude={userLocation?.longitude || 77.5946} 
+           <MapSearch 
+             center={{ lat: userLocation?.latitude || 12.9716, lng: userLocation?.longitude || 77.5946 }}
              services={services}
-             activeServiceId={activeServiceId}
-             onMarkerClick={handleMarkerClick}
-             className="w-full h-full"
+             onMarkerClick={(service) => handleMarkerClick(service.id)}
            />
            
            {/* Floating Map Overlays */}

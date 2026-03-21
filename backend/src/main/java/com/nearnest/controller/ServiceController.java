@@ -27,6 +27,7 @@ public class ServiceController {
             @RequestParam(name = "minPrice", required = false) Double minPrice,
             @RequestParam(name = "maxPrice", required = false) Double maxPrice,
             @RequestParam(name = "minRating", required = false) Double minRating,
+            @RequestParam(name = "isAvailableNow", required = false) Boolean isAvailableNow,
             @RequestParam(name = "userLat", required = false) Double userLat,
             @RequestParam(name = "userLng", required = false) Double userLng,
             @RequestParam(name = "maxDistanceKm", required = false) Double maxDistanceKm,
@@ -34,11 +35,11 @@ public class ServiceController {
         
         Page<ServiceDto> services;
         boolean hasFilter = category != null || location != null || minPrice != null ||
-                maxPrice != null || minRating != null;
+                maxPrice != null || minRating != null || isAvailableNow != null;
 
         if (hasFilter || userLat != null || userLng != null || maxDistanceKm != null) {
             services = serviceService.searchServicesWithLocation(
-                    category, location, minPrice, maxPrice, minRating, userLat, userLng, maxDistanceKm, pageable);
+                    category, location, minPrice, maxPrice, minRating, isAvailableNow, userLat, userLng, maxDistanceKm, pageable);
         } else {
             services = serviceService.getAllServices(pageable);
         }
@@ -49,6 +50,14 @@ public class ServiceController {
     @GetMapping("/search")
     public ResponseEntity<Page<ServiceDto>> searchServices(@RequestParam(name = "q") String q, Pageable pageable) {
         return ResponseEntity.ok(serviceService.searchByQuery(q, pageable));
+    }
+
+    @GetMapping("/recommend")
+    public ResponseEntity<Page<ServiceDto>> getRecommendations(
+            @RequestParam(name = "userLat", required = false) Double userLat,
+            @RequestParam(name = "userLng", required = false) Double userLng,
+            Pageable pageable) {
+        return ResponseEntity.ok(serviceService.getRecommendations(userLat, userLng, pageable));
     }
 
     @GetMapping("/categories")

@@ -48,6 +48,11 @@ public class PaymentService {
             throw new RuntimeException("User not authenticated");
         }
 
+        // Security check: Only allow ADMIN to process manual/legacy payments
+        if (currentUser.getRole() != User.Role.ADMIN) {
+            throw new RuntimeException("Permission denied. Only administrators can manually process payments.");
+        }
+
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
 
@@ -160,6 +165,8 @@ public class PaymentService {
 
         } catch (RazorpayException e) {
             throw new RuntimeException("Error verifying Razorpay payment: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("An unexpected error occurred during verification: " + e.getMessage());
         }
     }
 

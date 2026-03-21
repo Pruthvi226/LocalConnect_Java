@@ -35,6 +35,38 @@ public class Booking {
     @Column(length = 500)
     private String notes;
 
+    @Column(name = "is_emergency")
+    private Boolean isEmergency = false;
+
+    @Column(name = "problem_image_url")
+    private String problemImageUrl;
+
+    @Column(name = "base_price")
+    private Double basePrice;
+
+    @Column(name = "platform_fee")
+    private Double platformFee;
+
+    @Column(name = "total_price")
+    private Double totalPrice;
+
+    // Phase 2: Before/After Proof
+    @Column(name = "before_image_url")
+    private String beforeImageUrl;
+
+    @Column(name = "after_image_url")
+    private String afterImageUrl;
+
+    // Phase 2: Live Tracking & ETA
+    @Column(name = "provider_lat")
+    private Double providerLat;
+
+    @Column(name = "provider_lng")
+    private Double providerLng;
+
+    @Column(name = "eta_minutes")
+    private Integer etaMinutes;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -99,6 +131,86 @@ public class Booking {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public Boolean getIsEmergency() {
+        return isEmergency;
+    }
+
+    public void setIsEmergency(Boolean isEmergency) {
+        this.isEmergency = isEmergency;
+    }
+
+    public String getProblemImageUrl() {
+        return problemImageUrl;
+    }
+
+    public void setProblemImageUrl(String problemImageUrl) {
+        this.problemImageUrl = problemImageUrl;
+    }
+
+    public Double getBasePrice() {
+        return basePrice;
+    }
+
+    public void setBasePrice(Double basePrice) {
+        this.basePrice = basePrice;
+    }
+
+    public Double getPlatformFee() {
+        return platformFee;
+    }
+
+    public void setPlatformFee(Double platformFee) {
+        this.platformFee = platformFee;
+    }
+
+    public Double getTotalPrice() {
+        return totalPrice;
+    }
+
+    public void setTotalPrice(Double totalPrice) {
+        this.totalPrice = totalPrice;
+    }
+
+    public String getBeforeImageUrl() {
+        return beforeImageUrl;
+    }
+
+    public void setBeforeImageUrl(String beforeImageUrl) {
+        this.beforeImageUrl = beforeImageUrl;
+    }
+
+    public String getAfterImageUrl() {
+        return afterImageUrl;
+    }
+
+    public void setAfterImageUrl(String afterImageUrl) {
+        this.afterImageUrl = afterImageUrl;
+    }
+
+    public Double getProviderLat() {
+        return providerLat;
+    }
+
+    public void setProviderLat(Double providerLat) {
+        this.providerLat = providerLat;
+    }
+
+    public Double getProviderLng() {
+        return providerLng;
+    }
+
+    public void setProviderLng(Double providerLng) {
+        this.providerLng = providerLng;
+    }
+
+    public Integer getEtaMinutes() {
+        return etaMinutes;
+    }
+
+    public void setEtaMinutes(Integer etaMinutes) {
+        this.etaMinutes = etaMinutes;
     }
 
     public LocalDateTime getCreatedAt() {

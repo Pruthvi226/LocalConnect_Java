@@ -5,6 +5,7 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import { bookingService } from '../services/bookingService';
 import { paymentService } from '../services/paymentService';
+import { Zap } from 'lucide-react';
 import api from '../services/api';
 
 const PAYPAL_CLIENT_ID = process.env.REACT_APP_PAYPAL_CLIENT_ID || '';
@@ -132,19 +133,37 @@ const Checkout = () => {
 
   if (paymentSuccess) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-          </svg>
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="max-w-md w-full text-center space-y-6 animate-in fade-in zoom-in duration-500">
+          <div className="relative w-24 h-24 mx-auto">
+             <div className="absolute inset-0 bg-green-100 rounded-full animate-ping opacity-25" />
+             <div className="relative w-full h-full bg-green-500 rounded-full flex items-center justify-center shadow-lg shadow-green-200">
+                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                </svg>
+             </div>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-black text-slate-900">Payment Successful!</h2>
+            <p className="text-slate-500 font-medium">Your booking has been confirmed. Redirecting you to your bookings...</p>
+          </div>
+          <div className="flex justify-center">
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" />
+            </div>
+          </div>
         </div>
-        <h2 className="text-3xl font-black text-slate-900 mb-2">Payment successful!</h2>
-        <p className="text-slate-500 font-bold">Your booking is now confirmed. Redirecting…</p>
       </div>
     );
   }
 
   const handleRazorpayPayment = async () => {
+    if (!window.Razorpay) {
+      setError("Razorpay SDK not loaded. Please check your internet connection.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -166,10 +185,10 @@ const Checkout = () => {
               razorpay_signature: response.razorpay_signature
             });
             setPaymentSuccess(true);
-            setTimeout(() => navigate('/bookings'), 2000);
+            setTimeout(() => navigate('/bookings'), 2500);
           } catch (err) {
-            setError(err.response?.data?.message || "Payment verification failed");
-          } finally {
+            console.error("Verification error:", err);
+            setError(err.response?.data?.message || "Payment verification failed. Please contact support.");
             setLoading(false);
           }
         },
@@ -189,13 +208,14 @@ const Checkout = () => {
 
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', function (response) {
-        setError(response.error.description);
+        setError(response.error.description || "Payment failed");
+        setLoading(false);
       });
       rzp.open();
     } catch (err) {
+      console.error("Order creation error:", err);
       setError(err.response?.data?.message || "Failed to initiate payment");
-    } finally {
-      // Don't set loading false here because rzp is async popup
+      setLoading(false);
     }
   };
 
@@ -205,10 +225,34 @@ const Checkout = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50">
       <div className="container mx-auto px-4 py-8 max-w-lg">
-        <h1 className="text-2xl font-bold mb-2">Checkout</h1>
-        <p className="text-gray-600 mb-6">
-          {booking?.service?.title} — ${amount}
-        </p>
+        <h1 className="text-3xl font-black mb-6 tracking-tight text-slate-800">Complete Payment</h1>
+        
+        {booking && (
+          <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-premium mb-8">
+             <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Pricing Breakdown</h2>
+             <div className="space-y-4 mb-6">
+                <div className="flex justify-between text-sm font-bold text-slate-600">
+                   <span>{booking.service?.title}</span>
+                   <span>₹{booking.service?.price}</span>
+                </div>
+                {booking.isEmergency && (
+                   <div className="flex justify-between text-sm font-bold text-red-500 bg-red-50 p-3 rounded-xl border border-red-100">
+                      <span className="flex items-center gap-1.5"><Zap className="w-4 h-4"/> Emergency Surge (1.5x)</span>
+                      <span>+₹{(booking.basePrice - booking.service?.price).toFixed(2)}</span>
+                   </div>
+                )}
+                <div className="flex justify-between text-sm font-bold text-slate-600">
+                   <span>Platform Fee</span>
+                   <span>₹{booking.platformFee || 50}</span>
+                </div>
+             </div>
+             <div className="h-px bg-slate-100 mb-4"></div>
+             <div className="flex justify-between text-3xl font-black text-slate-900">
+                <span>Total Due</span>
+                <span className="text-primary-600">₹{booking.totalPrice}</span>
+             </div>
+          </div>
+        )}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
             {error}

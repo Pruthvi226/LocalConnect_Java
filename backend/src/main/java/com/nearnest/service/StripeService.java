@@ -133,6 +133,12 @@ public class StripeService {
                     Payment payment = payments.get(0);
                     payment.setStatus(Payment.PaymentStatus.COMPLETED);
                     paymentRepository.save(payment);
+
+                    // Confirm Booking
+                    Booking booking = payment.getBooking();
+                    booking.setStatus(Booking.BookingStatus.CONFIRMED);
+                    bookingRepository.save(booking);
+
                     notificationService.createNotification(
                             payment.getBooking().getService().getProvider(),
                             "Payment Received",

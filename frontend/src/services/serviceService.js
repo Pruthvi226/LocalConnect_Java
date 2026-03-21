@@ -24,6 +24,39 @@ export const serviceService = {
     return response.data.content || response.data;
   },
 
+  getAllPaginated: async (filters = {}) => {
+    const response = await api.get(buildQuery(filters));
+    return response.data;
+  },
+
+  getRecommendations: async (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.keys(filters).forEach((key) => {
+      const value = filters[key];
+      if (value !== null && value !== undefined && value !== '') {
+        params.append(key, value);
+      }
+    });
+    const query = params.toString();
+    const endpoint = query ? `/services/recommend?${query}` : '/services/recommend';
+    const response = await api.get(endpoint);
+    return response.data.content || response.data;
+  },
+
+  getRecommendationsPaginated: async (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.keys(filters).forEach((key) => {
+      const value = filters[key];
+      if (value !== null && value !== undefined && value !== '') {
+        params.append(key, value);
+      }
+    });
+    const query = params.toString();
+    const endpoint = query ? `/services/recommend?${query}` : '/services/recommend';
+    const response = await api.get(endpoint);
+    return response.data;
+  },
+
   search: async (query) => {
     const response = await api.get(`/services/search?q=${encodeURIComponent(query)}`);
     return response.data.content || response.data;

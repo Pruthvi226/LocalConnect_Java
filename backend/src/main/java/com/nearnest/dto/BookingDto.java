@@ -16,6 +16,16 @@ public class BookingDto {
     private LocalDateTime bookingDate;
     private BookingStatus status;
     private String notes;
+    private Boolean isEmergency;
+    private String problemImageUrl;
+    private Double basePrice;
+    private Double platformFee;
+    private Double totalPrice;
+    private String beforeImageUrl;
+    private String afterImageUrl;
+    private Double providerLat;
+    private Double providerLng;
+    private Integer etaMinutes;
     private LocalDateTime createdAt;
 
     // Nested service object for frontend compatibility
@@ -37,6 +47,16 @@ public class BookingDto {
         dto.setBookingDate(b.getBookingDate());
         dto.setStatus(b.getStatus());
         dto.setNotes(b.getNotes());
+        dto.setIsEmergency(b.getIsEmergency());
+        dto.setProblemImageUrl(b.getProblemImageUrl());
+        dto.setBasePrice(b.getBasePrice());
+        dto.setPlatformFee(b.getPlatformFee());
+        dto.setTotalPrice(b.getTotalPrice());
+        dto.setBeforeImageUrl(b.getBeforeImageUrl());
+        dto.setAfterImageUrl(b.getAfterImageUrl());
+        dto.setProviderLat(b.getProviderLat());
+        dto.setProviderLng(b.getProviderLng());
+        dto.setEtaMinutes(b.getEtaMinutes());
         dto.setCreatedAt(b.getCreatedAt());
 
         // Populate nested service summary
@@ -48,6 +68,8 @@ public class BookingDto {
         svc.setPrice(b.getService().getPrice());
         svc.setImageUrl(b.getService().getImageUrl());
         svc.setAverageRating(b.getService().getAverageRating());
+        svc.setIsAvailableNow(b.getService().getIsAvailableNow());
+        svc.setPlatformFee(b.getService().getPlatformFee());
         if (b.getService().getProvider() != null) {
             ProviderInfo prov = new ProviderInfo();
             prov.setId(b.getService().getProvider().getId());
@@ -68,6 +90,8 @@ public class BookingDto {
         private BigDecimal price;
         private String imageUrl;
         private Double averageRating;
+        private Boolean isAvailableNow;
+        private Double platformFee;
         private ProviderInfo provider;
 
         public Long getId() { return id; }
@@ -84,6 +108,10 @@ public class BookingDto {
         public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
         public Double getAverageRating() { return averageRating; }
         public void setAverageRating(Double averageRating) { this.averageRating = averageRating; }
+        public Boolean getIsAvailableNow() { return isAvailableNow; }
+        public void setIsAvailableNow(Boolean isAvailableNow) { this.isAvailableNow = isAvailableNow; }
+        public Double getPlatformFee() { return platformFee; }
+        public void setPlatformFee(Double platformFee) { this.platformFee = platformFee; }
         public ProviderInfo getProvider() { return provider; }
         public void setProvider(ProviderInfo provider) { this.provider = provider; }
     }
@@ -119,6 +147,26 @@ public class BookingDto {
     public void setStatus(BookingStatus status) { this.status = status; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public Boolean getIsEmergency() { return isEmergency; }
+    public void setIsEmergency(Boolean isEmergency) { this.isEmergency = isEmergency; }
+    public String getProblemImageUrl() { return problemImageUrl; }
+    public void setProblemImageUrl(String problemImageUrl) { this.problemImageUrl = problemImageUrl; }
+    public Double getBasePrice() { return basePrice; }
+    public void setBasePrice(Double basePrice) { this.basePrice = basePrice; }
+    public Double getPlatformFee() { return platformFee; }
+    public void setPlatformFee(Double platformFee) { this.platformFee = platformFee; }
+    public Double getTotalPrice() { return totalPrice; }
+    public void setTotalPrice(Double totalPrice) { this.totalPrice = totalPrice; }
+    public String getBeforeImageUrl() { return beforeImageUrl; }
+    public void setBeforeImageUrl(String beforeImageUrl) { this.beforeImageUrl = beforeImageUrl; }
+    public String getAfterImageUrl() { return afterImageUrl; }
+    public void setAfterImageUrl(String afterImageUrl) { this.afterImageUrl = afterImageUrl; }
+    public Double getProviderLat() { return providerLat; }
+    public void setProviderLat(Double providerLat) { this.providerLat = providerLat; }
+    public Double getProviderLng() { return providerLng; }
+    public void setProviderLng(Double providerLng) { this.providerLng = providerLng; }
+    public Integer getEtaMinutes() { return etaMinutes; }
+    public void setEtaMinutes(Integer etaMinutes) { this.etaMinutes = etaMinutes; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public ServiceSummary getService() { return service; }

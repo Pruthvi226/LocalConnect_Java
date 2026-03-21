@@ -6,7 +6,7 @@ import {
   MessageSquare, ShieldCheck, 
   Calendar, Clock, ArrowLeft,
   Share2, ShieldAlert, CheckCircle2,
-  Zap, ChevronRight, Info
+  Zap, ChevronRight, Info, AlertCircle
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import { serviceService } from '../services/serviceService';
@@ -27,6 +27,8 @@ const ServiceDetails = () => {
   
   const [bookingDate, setBookingDate] = useState(dayjs().add(1, 'day').format('YYYY-MM-DDTHH:mm'));
   const [bookingNotes, setBookingNotes] = useState('');
+  const [isEmergency, setIsEmergency] = useState(false);
+  const [problemImageUrl, setProblemImageUrl] = useState('');
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   
@@ -66,7 +68,7 @@ const ServiceDetails = () => {
     setBookingLoading(true);
     setBookingSuccess(false);
     try {
-      await bookingService.create(id, new Date(bookingDate), bookingNotes);
+      await bookingService.create(id, new Date(bookingDate), bookingNotes, isEmergency, problemImageUrl);
       setBookingSuccess(true);
       setTimeout(() => navigate('/bookings'), 2000);
     } catch (err) {
@@ -379,30 +381,52 @@ const ServiceDetails = () => {
                             />
                          </div>
                       </div>
-                      <div>
+                       <div>
                          <label className="text-xs font-black uppercase text-slate-500 tracking-widest mb-2 block ml-1">Job Details</label>
                          <textarea 
-                           className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl font-medium text-slate-600 focus:outline-none focus:border-primary-500 h-24 text-sm"
+                           className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl font-medium text-slate-600 focus:outline-none focus:border-primary-500 h-24 text-sm mb-3"
                            placeholder="Describe the issue or requirements..."
                            value={bookingNotes}
                            onChange={(e) => setBookingNotes(e.target.value)}
                          />
+                         <input 
+                           type="text"
+                           placeholder="Image URL (optional)"
+                           value={problemImageUrl}
+                           onChange={(e) => setProblemImageUrl(e.target.value)}
+                           className="w-full bg-slate-50 border border-slate-100 py-3 px-4 rounded-xl text-sm font-medium focus:outline-none focus:border-primary-500 mb-4"
+                         />
+                         
+                         <label className="flex items-center gap-3 cursor-pointer bg-red-50 p-4 rounded-xl border border-red-100">
+                           <input 
+                              type="checkbox" 
+                              checked={isEmergency}
+                              onChange={(e) => setIsEmergency(e.target.checked)}
+                              className="w-5 h-5 text-red-500 border-red-200 rounded focus:ring-red-500"
+                           />
+                           <div>
+                              <p className="font-bold text-red-700 text-sm flex items-center gap-1">
+                                <AlertCircle className="w-4 h-4" /> Emergency Mode
+                              </p>
+                              <p className="text-[10px] font-bold text-red-500">Prioritizes your request for immediate attention.</p>
+                           </div>
+                         </label>
                       </div>
                    </div>
 
                    <div className="bg-slate-50 rounded-3xl p-6 mb-8 space-y-3">
                       <div className="flex justify-between text-sm font-bold text-slate-500">
-                         <span>Service Price</span>
+                         <span>Base Price</span>
                          <span>₹{service.price}</span>
                       </div>
                       <div className="flex justify-between text-sm font-bold text-slate-500">
-                         <span>Verification Fee</span>
-                         <span>₹{Math.round(service.price * 0.05)}</span>
+                         <span>Platform Fee</span>
+                         <span>₹{service.platformFee || 50}</span>
                       </div>
                       <div className="h-px bg-slate-200"></div>
                       <div className="flex justify-between text-lg font-black text-slate-900">
                          <span>Total Due</span>
-                         <span className="text-primary-600">₹{Math.round(service.price * 1.05)}</span>
+                         <span className="text-primary-600">₹{service.price + (service.platformFee || 50)}</span>
                       </div>
                    </div>
 

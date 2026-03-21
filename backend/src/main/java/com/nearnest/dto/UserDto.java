@@ -10,6 +10,12 @@ public class UserDto {
     private String role;
     private String phoneNumber;
     private String address;
+    private Integer trustScore;
+    private Double completionRate;
+    private Double onTimePerformance;
+    private Double cancellationRate;
+    private String emergencyContactName;
+    private String emergencyContactPhone;
 
     public UserDto() {}
 
@@ -22,6 +28,12 @@ public class UserDto {
         dto.setRole(u.getRole().name());
         dto.setPhoneNumber(u.getPhone());
         dto.setAddress(u.getAddress());
+        dto.setTrustScore(u.getTrustScore());
+        dto.setCompletionRate(u.getCompletionRate());
+        dto.setOnTimePerformance(u.getOnTimePerformance());
+        dto.setCancellationRate(u.getCancellationRate());
+        dto.setEmergencyContactName(u.getEmergencyContactName());
+        dto.setEmergencyContactPhone(u.getEmergencyContactPhone());
         return dto;
     }
 
@@ -40,4 +52,16 @@ public class UserDto {
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+    public Integer getTrustScore() { return trustScore; }
+    public void setTrustScore(Integer trustScore) { this.trustScore = trustScore; }
+    public Double getCompletionRate() { return completionRate; }
+    public void setCompletionRate(Double completionRate) { this.completionRate = completionRate; }
+    public Double getOnTimePerformance() { return onTimePerformance; }
+    public void setOnTimePerformance(Double onTimePerformance) { this.onTimePerformance = onTimePerformance; }
+    public Double getCancellationRate() { return cancellationRate; }
+    public void setCancellationRate(Double cancellationRate) { this.cancellationRate = cancellationRate; }
+    public String getEmergencyContactName() { return emergencyContactName; }
+    public void setEmergencyContactName(String emergencyContactName) { this.emergencyContactName = emergencyContactName; }
+    public String getEmergencyContactPhone() { return emergencyContactPhone; }
+    public void setEmergencyContactPhone(String emergencyContactPhone) { this.emergencyContactPhone = emergencyContactPhone; }
 }

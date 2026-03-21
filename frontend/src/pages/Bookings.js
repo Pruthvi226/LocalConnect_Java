@@ -5,7 +5,9 @@ import {
   History, Calendar, Clock, MapPin, 
   ChevronRight, MessageSquare, CreditCard, 
   XCircle, CheckCircle2, AlertCircle, 
-  MoreHorizontal, ArrowUpRight, ShieldAlert
+  MoreHorizontal, ArrowUpRight, ShieldAlert,
+  ShieldCheck, ArrowRight, Search, Navigation, 
+  ChevronDown, PhoneCall, LocateFixed, Eye
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import { bookingService } from '../services/bookingService';
@@ -16,6 +18,8 @@ const Bookings = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('upcoming');
+  const [trackingBookingId, setTrackingBookingId] = useState(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
 
@@ -146,14 +150,19 @@ const Bookings = () => {
 
                        {/* Project Content */}
                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-3 mb-4">
-                             <span className={`${config.bg} ${config.color} ${config.border} border px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2`}>
-                                <Icon className="w-3.5 h-3.5" />
-                                {config.label}
-                             </span>
-                             <span className="text-slate-300 font-medium text-xs">•</span>
-                             <span className="text-slate-500 text-xs font-bold uppercase tracking-wider">{booking.service?.category}</span>
-                          </div>
+                           <div className="flex flex-wrap items-center gap-3 mb-4">
+                              <span className={`${config.bg} ${config.color} ${config.border} border px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2`}>
+                                 <Icon className="w-3.5 h-3.5" />
+                                 {config.label}
+                              </span>
+                              {booking.isEmergency && (
+                                <span className="bg-red-50 text-red-600 border border-red-100 px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                   <AlertCircle className="w-3.5 h-3.5" /> URGENT
+                                </span>
+                              )}
+                              <span className="text-slate-300 font-medium text-xs">•</span>
+                              <span className="text-slate-500 text-xs font-bold uppercase tracking-wider">{booking.service?.category}</span>
+                           </div>
 
                           <h3 className="text-2xl lg:text-3xl font-black text-slate-900 mb-2 truncate">
                              {booking.service?.title}
@@ -170,10 +179,77 @@ const Bookings = () => {
                              </div>
                              <div className="flex items-center gap-3 text-slate-500 font-bold text-sm">
                                 <CreditCard className="w-5 h-5 text-primary-500" />
-                                Est. Total: ₹{Math.round(booking.service?.price * 1.05)}
+                                Total Paid: ₹{booking.totalPrice || Math.round(booking.service?.price * 1.05)}
                              </div>
+                             {booking.problemImageUrl && (
+                                <div className="flex items-center gap-3 text-slate-500 font-bold text-sm">
+                                   <ArrowUpRight className="w-5 h-5 text-amber-500" />
+                                   <a href={booking.problemImageUrl} target="_blank" rel="noreferrer" className="text-primary-600 underline">Initial Attachment</a>
+                                </div>
+                             )}
+                             {booking.beforeImageUrl && (
+                                <div className="flex items-center gap-3 text-slate-500 font-bold text-sm">
+                                   <ArrowUpRight className="w-5 h-5 text-indigo-500" />
+                                   <a href={booking.beforeImageUrl} target="_blank" rel="noreferrer" className="text-indigo-600 underline">Before Workflow Image</a>
+                                </div>
+                             )}
+                             {booking.afterImageUrl && (
+                                <div className="flex items-center gap-3 text-slate-500 font-bold text-sm">
+                                   <ArrowUpRight className="w-5 h-5 text-green-500" />
+                                   <a href={booking.afterImageUrl} target="_blank" rel="noreferrer" className="text-green-600 underline font-black">Verified Completion Proof</a>
+                                </div>
+                             )}
+                             {booking.status === 'CONFIRMED' && (
+                                <div className="mt-6 border-t border-slate-100 pt-6">
+                                   {trackingBookingId === booking.id ? (
+                                     <motion.div 
+                                       initial={{ opacity: 0, height: 0 }}
+                                       animate={{ opacity: 1, height: 'auto' }}
+                                       className="bg-slate-900 rounded-[2rem] p-6 text-white overflow-hidden relative"
+                                     >
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary-500 rounded-full blur-[80px] -mr-16 -mt-16 opacity-30"></div>
+                                        <div className="flex justify-between items-start mb-6 border-b border-white/10 pb-4 relative z-10">
+                                           <div className="flex items-center gap-3">
+                                              <div className="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center animate-pulse">
+                                                 <LocateFixed className="w-5 h-5 text-white" />
+                                              </div>
+                                              <div>
+                                                 <p className="text-[10px] font-black uppercase text-primary-400 tracking-widest leading-none mb-1">Live Tracker</p>
+                                                 <p className="font-bold text-sm">Expert is en-route</p>
+                                              </div>
+                                           </div>
+                                           <button onClick={() => setTrackingBookingId(null)} className="text-white/50 hover:text-white">Close</button>
+                                        </div>
+                                        <div className="flex flex-col md:flex-row gap-4 relative z-10">
+                                           <div className="flex-1 bg-white/5 p-4 rounded-3xl border border-white/10 text-center">
+                                              <p className="text-[10px] font-black uppercase tracking-widest text-primary-300 mb-1">Estimated Arrival</p>
+                                              <p className="text-3xl font-black text-white">{booking.etaMinutes || 12} <span className="text-sm">mins</span></p>
+                                           </div>
+                                           <div className="flex flex-col gap-2 relative z-10">
+                                              <button className="flex-1 bg-indigo-500 hover:bg-indigo-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                                                 <Eye className="w-4 h-4" /> Share Tracking
+                                              </button>
+                                              <button className="flex-1 bg-red-500 hover:bg-red-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                                                 <PhoneCall className="w-4 h-4" /> SOS Alert
+                                              </button>
+                                           </div>
+                                        </div>
+                                     </motion.div>
+                                   ) : (
+                                     <div className="flex gap-4">
+                                        <button 
+                                          onClick={() => setTrackingBookingId(booking.id)}
+                                          className="bg-primary-50 text-primary-700 hover:bg-primary-100 font-black py-4 px-8 rounded-2xl text-sm transition-all active:scale-95 flex items-center gap-2"
+                                        >
+                                           <Navigation className="w-4 h-4" />
+                                           Track Expert
+                                        </button>
+                                     </div>
+                                   )}
+                                </div>
+                             )}
                              {booking.notes && (
-                               <div className="flex items-center gap-3 text-slate-500 font-medium text-sm italic">
+                               <div className="flex items-center gap-3 text-slate-500 font-medium text-sm italic col-span-1 md:col-span-2">
                                   <AlertCircle className="w-5 h-5 text-slate-300" />
                                   "{booking.notes}"
                                </div>

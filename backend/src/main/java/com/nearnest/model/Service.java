@@ -56,6 +56,12 @@ public class Service {
     @Column(name = "is_available")
     private Boolean isAvailable = true;
 
+    @Column(name = "is_available_now")
+    private Boolean isAvailableNow = false;
+
+    @Column(name = "platform_fee")
+    private Double platformFee = 50.0;
+
     @Transient
     private Double distanceKm;
 
@@ -181,6 +187,22 @@ public class Service {
 
     public void setIsAvailable(Boolean isAvailable) {
         this.isAvailable = isAvailable;
+    }
+
+    public Boolean getIsAvailableNow() {
+        return isAvailableNow;
+    }
+
+    public void setIsAvailableNow(Boolean isAvailableNow) {
+        this.isAvailableNow = isAvailableNow;
+    }
+
+    public Double getPlatformFee() {
+        return platformFee;
+    }
+
+    public void setPlatformFee(Double platformFee) {
+        this.platformFee = platformFee;
     }
 
     public Double getDistanceKm() {

@@ -22,6 +22,7 @@ public interface ServiceRepository extends JpaRepository<Service, Long> {
            "(:minPrice IS NULL OR s.price >= :minPrice) AND " +
            "(:maxPrice IS NULL OR s.price <= :maxPrice) AND " +
            "(:minRating IS NULL OR s.averageRating >= :minRating) AND " +
+           "(:isAvailableNow IS NULL OR s.isAvailableNow = :isAvailableNow) AND " +
            "s.isAvailable = true")
     Page<Service> searchServices(
         @Param("category") String category,
@@ -29,6 +30,7 @@ public interface ServiceRepository extends JpaRepository<Service, Long> {
         @Param("minPrice") Double minPrice,
         @Param("maxPrice") Double maxPrice,
         @Param("minRating") Double minRating,
+        @Param("isAvailableNow") Boolean isAvailableNow,
         Pageable pageable
     );
     

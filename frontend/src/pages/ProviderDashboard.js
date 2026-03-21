@@ -21,6 +21,7 @@ const ProviderDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [statusUpdating, setStatusUpdating] = useState({});
+  const [proofImages, setProofImages] = useState({});
   
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
@@ -56,7 +57,8 @@ const ProviderDashboard = () => {
   const handleUpdateStatus = async (bookingId, newStatus) => {
     try {
       setStatusUpdating(prev => ({ ...prev, [bookingId]: true }));
-      await providerService.updateBookingStatus(bookingId, newStatus);
+      const imgs = proofImages[bookingId] || {};
+      await providerService.updateBookingStatus(bookingId, newStatus, null, imgs.before, imgs.after);
       await loadData();
     } catch (err) { 
       console.error('Status update failed:', err);
@@ -213,19 +215,35 @@ const ProviderDashboard = () => {
                                     <h4 className="text-lg font-black text-slate-900 truncate">
                                        {booking.user?.fullName || 'ProxiSense Client'}
                                     </h4>
-                                    <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
-                                       booking.status === 'CONFIRMED' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'
-                                    }`}>
-                                       {booking.status}
-                                    </span>
+                                     <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
+                                        booking.status === 'CONFIRMED' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                                     }`}>
+                                        {booking.status}
+                                     </span>
+                                     {booking.isEmergency && (
+                                       <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border bg-red-50 text-red-600 border-red-100 flex items-center gap-1">
+                                          <AlertCircle className="w-3 h-3" /> URGENT
+                                       </span>
+                                     )}
                                  </div>
                                  <p className="text-slate-500 font-bold text-sm mb-4">
                                     Needs: <span className="text-primary-600 underline underline-offset-4">{booking.service?.title}</span>
                                  </p>
-                                 <div className="flex flex-wrap gap-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                    <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {dayjs(booking.bookingDate).format('MMM D, h:mm A')}</div>
-                                    <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {booking.service?.location}</div>
-                                 </div>
+                                  <div className="flex flex-wrap gap-4 text-xs font-black text-slate-400 uppercase tracking-widest mt-2">
+                                     <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {dayjs(booking.bookingDate).format('MMM D, h:mm A')}</div>
+                                     <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {booking.service?.location}</div>
+                                     {booking.problemImageUrl && (
+                                       <div className="flex items-center gap-1.5">
+                                          <ArrowUpRight className="w-3.5 h-3.5" /> 
+                                          <a href={booking.problemImageUrl} target="_blank" rel="noreferrer" className="text-primary-600 underline">Image</a>
+                                       </div>
+                                     )}
+                                     {booking.totalPrice && (
+                                       <div className="flex items-center gap-1.5">
+                                          <DollarSign className="w-3.5 h-3.5" /> ₹{booking.totalPrice}
+                                       </div>
+                                     )}
+                                  </div>
                               </div>
                               <div className="flex md:flex-col gap-3">
                                  {booking.status === 'PENDING' ? (
@@ -236,19 +254,38 @@ const ProviderDashboard = () => {
                                     >
                                        {statusUpdating[booking.id] ? 'Updating...' : 'Accept Request'}
                                     </button>
-                                 ) : (
-                                    <div className="flex items-center gap-2 text-green-600 font-black text-xs uppercase tracking-widest bg-green-50 px-6 py-4 rounded-2xl border border-green-100">
-                                       <CheckCircle2 className="w-4 h-4" /> Ready to Fulfill
-                                    </div>
-                                 )}
-                                 <div className="flex gap-2">
-                                    <button 
-                                      disabled={statusUpdating[booking.id]}
-                                      onClick={() => handleUpdateStatus(booking.id, 'COMPLETED')}
-                                      className="p-4 bg-green-50 text-green-600 rounded-xl border border-green-100 hover:bg-green-100 transition-all active:scale-95 disabled:opacity-50"
-                                    >
-                                       <CheckCircle2 className="w-5 h-5" />
-                                    </button>
+                                  ) : (
+                                     <div className="flex flex-col gap-3">
+                                        <div className="flex flex-col gap-2">
+                                           <input 
+                                              type="url" 
+                                              placeholder="Before Image URL" 
+                                              className="text-xs p-3 rounded-xl bg-slate-50 border border-slate-100 focus:outline-none focus:border-primary-300"
+                                              value={proofImages[booking.id]?.before || ''}
+                                              onChange={(e) => setProofImages({...proofImages, [booking.id]: {...proofImages[booking.id], before: e.target.value}})}
+                                           />
+                                           <input 
+                                              type="url" 
+                                              placeholder="After Image URL (Proof)" 
+                                              className="text-xs p-3 rounded-xl bg-slate-50 border border-slate-100 focus:outline-none focus:border-primary-300"
+                                              value={proofImages[booking.id]?.after || ''}
+                                              onChange={(e) => setProofImages({...proofImages, [booking.id]: {...proofImages[booking.id], after: e.target.value}})}
+                                           />
+                                        </div>
+                                        <div className="flex items-center gap-2 text-green-600 font-black text-xs uppercase tracking-widest bg-green-50 px-6 py-4 rounded-2xl border border-green-100">
+                                           <CheckCircle2 className="w-4 h-4" /> Fulfilling Job
+                                        </div>
+                                     </div>
+                                  )}
+                                  <div className="flex gap-2">
+                                     <button 
+                                       disabled={statusUpdating[booking.id]}
+                                       onClick={() => handleUpdateStatus(booking.id, 'COMPLETED')}
+                                       className="flex-1 p-4 bg-green-50 text-green-600 rounded-xl border border-green-100 hover:bg-green-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-black text-xs uppercase"
+                                     >
+                                        <CheckCircle2 className="w-5 h-5" />
+                                        Complete
+                                     </button>
                                     <button 
                                       disabled={statusUpdating[booking.id]}
                                       onClick={() => handleUpdateStatus(booking.id, 'CANCELLED')}

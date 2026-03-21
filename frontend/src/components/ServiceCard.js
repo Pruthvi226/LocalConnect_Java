@@ -88,13 +88,24 @@ const ServiceCard = ({ service }) => {
       {/* Card Content */}
       <div className="p-5">
         <div className="flex justify-between items-start mb-2">
-           <span className="text-[10px] font-bold text-primary-600 uppercase tracking-widest bg-primary-50 px-2 py-1 rounded">
-             {service.category || 'General'}
-           </span>
-           <div className="flex items-center gap-1">
-             <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+           <div className="flex flex-col gap-1.5 flex-1 pr-2">
+              <div className="flex flex-wrap gap-2 items-center">
+                 <span className="text-[10px] font-bold text-primary-600 uppercase tracking-widest bg-primary-50 px-2 py-1 rounded">
+                   {service.category || 'General'}
+                 </span>
+                 {service.provider?.trustScore && (
+                    <span className="flex items-center gap-1 text-[10px] font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded uppercase tracking-widest shadow-sm">
+                       <ShieldCheck className="w-3 h-3" /> 
+                       Trust {service.provider.trustScore}
+                    </span>
+                 )}
+              </div>
+           </div>
+           
+           <div className="flex items-center gap-1 flex-shrink-0">
+             <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
              <span className="text-sm font-bold text-slate-700">{service.averageRating?.toFixed(1) || '0.0'}</span>
-             <span className="text-[10px] text-slate-400 font-medium">({service.totalReviews || 0})</span>
+             <span className="text-[10px] text-slate-400 font-medium">({service.reviewCount || service.totalReviews || 0})</span>
            </div>
         </div>
 
