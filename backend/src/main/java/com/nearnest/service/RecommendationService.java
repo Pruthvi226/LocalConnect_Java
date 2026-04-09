@@ -12,9 +12,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.lang.NonNull;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -34,8 +36,8 @@ public class RecommendationService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public List<ServiceDto> getRecommendationsForUser(Long userId) {
-        String url = UriComponentsBuilder.fromHttpUrl(mlServiceUrl)
+    public List<ServiceDto> getRecommendationsForUser(@NonNull Long userId) {
+        String url = UriComponentsBuilder.fromHttpUrl(Objects.requireNonNull(mlServiceUrl))
                 .path("/api/recommendations/user/{userId}")
                 .buildAndExpand(userId)
                 .toUriString();
@@ -43,7 +45,7 @@ public class RecommendationService {
         try {
             ResponseEntity<List<Long>> response = restTemplate.exchange(
                     url,
-                    HttpMethod.GET,
+                    Objects.requireNonNull(HttpMethod.GET),
                     null,
                     new ParameterizedTypeReference<List<Long>>() {}
             );

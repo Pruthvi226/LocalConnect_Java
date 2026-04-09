@@ -17,6 +17,11 @@ public class UserUpdateDto {
 
     private String profileImageUrl;
 
+    // Provider Payout Details
+    private String bankAccountNumber;
+    private String ifscCode;
+    private String upiId;
+
     // Getters and Setters
     public String getFullName() {
         return fullName;
@@ -57,4 +62,13 @@ public class UserUpdateDto {
     public void setProfileImageUrl(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
     }
+
+    public String getBankAccountNumber() { return bankAccountNumber; }
+    public void setBankAccountNumber(String bankAccountNumber) { this.bankAccountNumber = bankAccountNumber; }
+
+    public String getIfscCode() { return ifscCode; }
+    public void setIfscCode(String ifscCode) { this.ifscCode = ifscCode; }
+
+    public String getUpiId() { return upiId; }
+    public void setUpiId(String upiId) { this.upiId = upiId; }
 }

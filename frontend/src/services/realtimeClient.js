@@ -19,7 +19,7 @@ export function connectRealtime(token, onMessage, onNotification) {
     heartbeatIncoming: 4000,
     heartbeatOutgoing: 4000,
     onConnect: () => {
-      const subMsg = client.subscribe('/user/queue/messages', (frame) => {
+      const subMsg = client.subscribe('/Customer/queue/messages', (frame) => {
         try {
           const body = JSON.parse(frame.body);
           onMessage?.(body);
@@ -29,7 +29,7 @@ export function connectRealtime(token, onMessage, onNotification) {
       });
       subscriptions.push(subMsg);
 
-      const subNotif = client.subscribe('/user/queue/notifications', (frame) => {
+      const subNotif = client.subscribe('/Customer/queue/notifications', (frame) => {
         try {
           const body = JSON.parse(frame.body);
           onNotification?.(body);
@@ -60,3 +60,4 @@ export function disconnectRealtime() {
 export function isRealtimeConnected() {
   return client?.connected ?? false;
 }
+

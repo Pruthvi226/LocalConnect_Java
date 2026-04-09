@@ -20,6 +20,16 @@ public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
                         HttpServletResponse response,
                         AuthenticationException authException) throws IOException, ServletException {
         logger.error("Unauthorized error: {}", authException.getMessage());
-        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Error: Unauthorized");
+        
+        response.setContentType("application/json");
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        
+        // Match the ErrorResponse format from GlobalExceptionHandler
+        String body = String.format(
+            "{\"status\": 401, \"error\": \"Unauthorized\", \"message\": \"%s\", \"path\": \"%s\"}",
+            "Authentication failed. Please check your credentials.",
+            request.getRequestURI()
+        );
+        response.getWriter().write(body);
     }
 }

@@ -4,66 +4,101 @@ import com.nearnest.dto.ReviewDto;
 import com.nearnest.model.Review;
 import com.nearnest.model.Service;
 import com.nearnest.model.User;
+import com.nearnest.model.Booking;
 import com.nearnest.repository.ReviewRepository;
 import com.nearnest.repository.ServiceRepository;
+import com.nearnest.repository.UserRepository;
+import com.nearnest.repository.BookingRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.lang.NonNull;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @org.springframework.stereotype.Service
 public class ReviewService {
     @Autowired
-    ReviewRepository reviewRepository;
+    private ReviewRepository reviewRepository;
 
     @Autowired
-    ServiceRepository serviceRepository;
+    private ServiceRepository serviceRepository;
 
     @Autowired
-    AuthService authService;
+    private UserRepository userRepository;
 
-    public List<ReviewDto> getServiceReviews(Long serviceId) {
-        return reviewRepository.findByServiceId(serviceId).stream()
+    @Autowired
+    private BookingRepository bookingRepository;
+
+    @Autowired
+    private AuthService authService;
+
+    public List<ReviewDto> getServiceReviews(@NonNull Long serviceId) {
+        return reviewRepository.findByServiceId(Objects.requireNonNull(serviceId)).stream()
+                .map(ReviewDto::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<ReviewDto> getProviderReviews(@NonNull Long providerId) {
+        return reviewRepository.findByProviderId(Objects.requireNonNull(providerId)).stream()
                 .map(ReviewDto::fromEntity)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public ReviewDto createReview(Long serviceId, Integer rating, String comment) {
+    public ReviewDto createReview(@NonNull Long bookingId, @NonNull Integer rating, String comment, List<String> tags) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
         }
 
-        Service service = serviceRepository.findById(serviceId)
-                .orElseThrow(() -> new RuntimeException("Service not found"));
+        Booking booking = bookingRepository.findById(Objects.requireNonNull(bookingId))
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
 
-        // Check if user already reviewed this service
-        Optional<Review> existingReview = reviewRepository.findByUserIdAndServiceId(
-                currentUser.getId(), serviceId);
-        if (existingReview.isPresent()) {
-            throw new RuntimeException("You have already reviewed this service");
+        if (!booking.getUser().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("You are not authorized to review this booking");
+        }
+
+        if (booking.getStatus() != com.nearnest.model.Booking.BookingStatus.REVIEW_PENDING && 
+            booking.getStatus() != com.nearnest.model.Booking.BookingStatus.COMPLETED) {
+            throw new RuntimeException("Booking must be completed before reviewing");
+        }
+
+        if (reviewRepository.existsByBookingId(bookingId)) {
+            throw new RuntimeException("You have already reviewed this booking");
         }
 
         Review review = new Review();
         review.setUser(currentUser);
-        review.setService(service);
+        review.setBooking(booking);
+        review.setProvider(booking.getService().getProvider());
+        review.setService(booking.getService());
         review.setRating(rating);
         review.setComment(comment);
+        if (tags != null && !tags.isEmpty()) {
+            review.setRatingTags(String.join(",", tags));
+        }
 
         Review savedReview = reviewRepository.save(review);
 
-        // Update service rating
-        updateServiceRating(serviceId);
+        // Update booking status to COMPLETED if it was REVIEW_PENDING
+        if (booking.getStatus() == com.nearnest.model.Booking.BookingStatus.REVIEW_PENDING) {
+            booking.setStatus(com.nearnest.model.Booking.BookingStatus.COMPLETED);
+            bookingRepository.save(booking);
+        }
+
+        // Update provider rating
+        updateProviderRating(Objects.requireNonNull(booking.getService().getProvider().getId()));
+        // Update service rating as well
+        updateServiceRating(Objects.requireNonNull(booking.getService().getId()));
 
         return ReviewDto.fromEntity(savedReview);
     }
 
     @Transactional
-    public ReviewDto updateReview(Long id, Integer rating, String comment) {
-        Review review = reviewRepository.findById(id)
+    public ReviewDto updateReview(@NonNull Long id, Integer rating, String comment) {
+        Review review = reviewRepository.findById(Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Review not found"));
 
         User currentUser = authService.getCurrentUser();
@@ -85,15 +120,16 @@ public class ReviewService {
 
         Review updatedReview = reviewRepository.save(review);
 
-        // Update service rating
-        updateServiceRating(review.getService().getId());
+        // Update ratings
+        updateProviderRating(Objects.requireNonNull(review.getProvider().getId()));
+        updateServiceRating(Objects.requireNonNull(review.getService().getId()));
 
         return ReviewDto.fromEntity(updatedReview);
     }
 
     @Transactional
-    public void deleteReview(Long id) {
-        Review review = reviewRepository.findById(id)
+    public void deleteReview(@NonNull Long id) {
+        Review review = reviewRepository.findById(Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Review not found"));
 
         User currentUser = authService.getCurrentUser();
@@ -106,16 +142,18 @@ public class ReviewService {
             throw new RuntimeException("You don't have permission to delete this review");
         }
 
+        Long providerId = review.getProvider().getId();
         Long serviceId = review.getService().getId();
         reviewRepository.delete(review);
 
-        // Update service rating
-        updateServiceRating(serviceId);
+        // Update ratings
+        updateProviderRating(Objects.requireNonNull(providerId));
+        updateServiceRating(Objects.requireNonNull(serviceId));
     }
 
     @Transactional
     private void updateServiceRating(Long serviceId) {
-        List<Review> reviews = reviewRepository.findByServiceId(serviceId);
+        List<Review> reviews = reviewRepository.findByServiceId(Objects.requireNonNull(serviceId));
         if (reviews.isEmpty()) {
             Service service = serviceRepository.findById(serviceId).orElse(null);
             if (service != null) {
@@ -136,5 +174,30 @@ public class ReviewService {
         service.setAverageRating(averageRating);
         service.setTotalReviews(reviews.size());
         serviceRepository.save(service);
+    }
+
+    @Transactional
+    private void updateProviderRating(Long providerId) {
+        List<Review> reviews = reviewRepository.findByProviderId(Objects.requireNonNull(providerId));
+        if (reviews.isEmpty()) {
+            User provider = userRepository.findById(Objects.requireNonNull(providerId)).orElse(null);
+            if (provider != null) {
+                provider.setAverageRating(0.0);
+                provider.setTotalReviews(0);
+                userRepository.save(provider);
+            }
+            return;
+        }
+
+        double averageRating = reviews.stream()
+                .mapToInt(Review::getRating)
+                .average()
+                .orElse(0.0);
+
+        User provider = userRepository.findById(Objects.requireNonNull(providerId))
+                .orElseThrow(() -> new RuntimeException("Provider not found"));
+        provider.setAverageRating(averageRating);
+        provider.setTotalReviews(reviews.size());
+        userRepository.save(provider);
     }
 }

@@ -8,6 +8,7 @@ public class BookingCreateRequest {
     private String notes;
     private Boolean isEmergency;
     private String problemImageUrl;
+    private String paymentMethod;
 
     // Getters and Setters
     public Long getServiceId() { return serviceId; }
@@ -20,4 +21,6 @@ public class BookingCreateRequest {
     public void setIsEmergency(Boolean isEmergency) { this.isEmergency = isEmergency; }
     public String getProblemImageUrl() { return problemImageUrl; }
     public void setProblemImageUrl(String problemImageUrl) { this.problemImageUrl = problemImageUrl; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
 }

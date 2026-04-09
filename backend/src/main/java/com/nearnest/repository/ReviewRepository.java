@@ -11,5 +11,8 @@ import java.util.Optional;
 public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findByServiceId(Long serviceId);
     List<Review> findByUserId(Long userId);
+    List<Review> findByProviderId(Long providerId);
     Optional<Review> findByUserIdAndServiceId(Long userId, Long serviceId);
+    Optional<Review> findByBookingId(Long bookingId);
+    boolean existsByBookingId(Long bookingId);
 }

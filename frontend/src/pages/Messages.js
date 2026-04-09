@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { useRealtime } from '../context/RealtimeContext';
 
 const Messages = () => {
-  const { user } = useAuth();
+  const { Customer } = useAuth();
   const { lastMessage } = useRealtime();
   const [unread, setUnread] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -92,7 +92,7 @@ const Messages = () => {
         if (id && !partnersMap.has(id)) {
           partnersMap.set(id, { 
             id, 
-            name: m.sender?.fullName || m.sender?.username || 'Expert',
+            name: m.sender?.fullName || m.sender?.Username || 'Expert',
             lastContent: m.content,
             timestamp: m.createdAt,
             unreadCount: (partnersMap.get(id)?.unreadCount || 0) + 1
@@ -102,18 +102,18 @@ const Messages = () => {
       
       setConversations(Array.from(partnersMap.values()));
     } catch (err) {
-      setError('Neural bridge sync failed.');
+      setError('Connection failed.');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadConversation = async (userId) => {
+  const loadConversation = async (UserId) => {
     try {
-      const data = await messageService.getConversation(userId);
+      const data = await messageService.getConversation(UserId);
       setMessages(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError('Failed to download conversation packets.');
+      setError('Failed to load conversation.');
     }
   };
 
@@ -121,17 +121,18 @@ const Messages = () => {
     if (!newMessage.trim() || !selectedUserId) return;
     try {
       setSending(true);
-      const sentMsg = await messageService.send(selectedUserId, newMessage.trim());
+      const bookingIdFromState = location.state?.bookingId || null;
+      const sentMsg = await messageService.send(selectedUserId, newMessage.trim(), bookingIdFromState);
       setNewMessage('');
       // Optimistic update
       setMessages(prev => [...prev, {
-        id: Date.now(),
+        id: sentMsg.id || Date.now(),
         content: newMessage.trim(),
-        sender: { id: user.id },
+        sender: { id: Customer.id },
         createdAt: new Date().toISOString()
       }]);
     } catch (err) {
-      setError('Packet transmission failure.');
+      setError('Message failed to send.');
     } finally {
       setSending(false);
     }
@@ -143,7 +144,7 @@ const Messages = () => {
     return (
       <div className="min-h-screen bg-slate-900 pt-32 px-6 flex flex-col items-center justify-center">
          <div className="w-20 h-20 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-         <p className="font-black text-white uppercase tracking-[0.3em] text-xs">Syncing Communication Neural Hub...</p>
+         <p className="font-black text-white uppercase tracking-[0.3em] text-xs">Loading messages...</p>
       </div>
     );
   }
@@ -156,7 +157,7 @@ const Messages = () => {
         <aside className={`${isSidebarOpen ? 'w-full md:w-[400px]' : 'hidden md:flex md:w-[100px]'} transition-all bg-slate-900 border border-white/5 rounded-[3rem] overflow-hidden flex flex-col mr-6 shadow-2xl`}>
            <div className="p-8 pb-4">
               <div className="flex items-center justify-between mb-8">
-                 <h2 className="text-xl font-black text-white tracking-tight">Channels.</h2>
+                 <h2 className="text-xl font-black text-white tracking-tight">Chats</h2>
                  <button className="bg-white/5 p-3 rounded-2xl hover:bg-white/10 transition-colors">
                     <MessageCircle className="w-5 h-5 text-primary-400" />
                  </button>
@@ -167,7 +168,7 @@ const Messages = () => {
                    type="text" 
                    value={searchQuery}
                    onChange={(e) => setSearchQuery(e.target.value)}
-                   placeholder="Search frequency..."
+                   placeholder="Search chats..."
                    className="w-full bg-white/2 border border-white/5 rounded-2xl py-4 pl-14 pr-6 text-sm text-white focus:outline-none focus:border-primary-500 transition-all placeholder:text-slate-600 font-bold uppercase tracking-wider h-14"
                  />
               </div>
@@ -203,7 +204,7 @@ const Messages = () => {
                           <span className={`text-[9px] font-black uppercase tracking-widest opacity-60 ${selectedUserId === c.id ? 'text-white' : ''}`}>12:45PM</span>
                        </div>
                        <p className={`text-[10px] font-bold truncate opacity-80 ${selectedUserId === c.id ? 'text-primary-100' : 'text-slate-500'}`}>
-                          {c.lastContent || 'Synchronizing secure link...'}
+                          {c.lastContent || 'No messages yet'}
                        </p>
                     </div>
                     {c.unreadCount > 0 && selectedUserId !== c.id && (
@@ -217,7 +218,7 @@ const Messages = () => {
            </div>
         </aside>
 
-        {/* Neural Transmission Area */}
+        {/* Message Area */}
         <main className="flex-1 bg-slate-900 border border-white/5 rounded-[3rem] overflow-hidden flex flex-col shadow-2xl relative">
            
            <div className="absolute inset-0 bg-primary-500 opacity-[0.02] pointer-events-none"></div>
@@ -234,10 +235,10 @@ const Messages = () => {
                          <img src={`https://api.dicebear.com/7.x/shapes/svg?seed=${selectedPartner?.name}`} className="w-10 h-10 object-contain p-2" alt="" />
                       </div>
                       <div>
-                         <h3 className="text-xl font-black text-white tracking-tight leading-none mb-2 uppercase">{selectedPartner?.name || 'Expert Hub'}</h3>
+                         <h3 className="text-xl font-black text-white tracking-tight leading-none mb-2 uppercase">{selectedPartner?.name || 'Chat'}</h3>
                          <div className="flex items-center gap-2">
                             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Secure Connection Established</p>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Online</p>
                          </div>
                       </div>
                    </div>
@@ -254,11 +255,11 @@ const Messages = () => {
                    </div>
                 </header>
 
-                {/* Packet Stream */}
+                {/* Message History */}
                 <div className="flex-1 overflow-y-auto p-10 space-y-8 invisible-scrollbar relative z-10">
                    <div className="flex flex-col items-center mb-12">
                       <div className="px-6 py-2 bg-white/5 rounded-full border border-white/5 backdrop-blur-md">
-                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">Transmission initiated • Today at 09:30</p>
+                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">Chat started • Today at 09:30</p>
                       </div>
                    </div>
 
@@ -267,12 +268,12 @@ const Messages = () => {
                         key={m.id || idx}
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        className={`flex ${m.sender?.id === user?.id ? 'justify-end' : 'justify-start'} group`}
+                        className={`flex ${m.sender?.id === Customer?.id ? 'justify-end' : 'justify-start'} group`}
                       >
-                         <div className={`flex flex-col ${m.sender?.id === user?.id ? 'items-end' : 'items-start'} max-w-[70%]`}>
+                         <div className={`flex flex-col ${m.sender?.id === Customer?.id ? 'items-end' : 'items-start'} max-w-[70%]`}>
                             <div
                               className={`px-8 py-5 rounded-[2.5rem] relative group-hover:scale-[1.02] transition-transform ${
-                                m.sender?.id === user?.id 
+                                m.sender?.id === Customer?.id 
                                 ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20 rounded-tr-none' 
                                 : 'bg-white/5 text-slate-300 border border-white/5 rounded-tl-none'
                               }`}
@@ -281,7 +282,7 @@ const Messages = () => {
                             </div>
                             <div className="mt-3 flex items-center gap-3 px-2">
                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                               {m.sender?.id === user?.id && (
+                               {m.sender?.id === Customer?.id && (
                                   <div className="flex text-primary-500">
                                      <CheckCheck className="w-3 h-3" />
                                   </div>
@@ -293,7 +294,7 @@ const Messages = () => {
                    <div ref={messagesEndRef} />
                 </div>
 
-                {/* Packet Input Component */}
+                {/* Message Input */}
                 <footer className="p-8 border-t border-white/5 relative z-10 bg-slate-900/50 backdrop-blur-xl">
                    <div className="bg-white/2 border border-white/5 rounded-[2.5rem] p-3 flex items-center gap-4 focus-within:border-primary-500 transition-all shadow-2xl">
                       <button className="p-4 bg-white/5 rounded-2xl text-slate-400 hover:bg-white/10 transition-all">
@@ -304,7 +305,7 @@ const Messages = () => {
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                        placeholder="Type a neural packet..."
+                        placeholder="Type a message..."
                         className="flex-1 bg-transparent border-none text-white focus:outline-none placeholder:text-slate-600 font-bold h-14"
                       />
                       <div className="hidden md:flex items-center gap-2 pr-2">
@@ -330,9 +331,9 @@ const Messages = () => {
                  <div className="w-32 h-32 bg-primary-500/5 rounded-[3rem] flex items-center justify-center mb-10 border border-primary-500/10">
                     <MessageCircle className="w-16 h-16 text-primary-500" />
                  </div>
-                 <h2 className="text-3xl font-black text-white tracking-tight mb-4 uppercase">Neural Hub Ready.</h2>
+                 <h2 className="text-3xl font-black text-white tracking-tight mb-4 uppercase">Select a Chat</h2>
                  <p className="text-slate-500 text-sm max-w-sm font-bold leading-relaxed">
-                    Select a frequency from the sidebar to establish a secure link with an expert specialist.
+                    Select a conversation from the sidebar to start chatting.
                  </p>
                  <div className="mt-12 flex gap-4">
                     <div className="flex items-center gap-3 px-6 py-3 bg-white/2 rounded-full border border-white/5">
@@ -349,4 +350,5 @@ const Messages = () => {
 };
 
 export default Messages;
+
 

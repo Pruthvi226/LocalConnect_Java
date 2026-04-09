@@ -85,6 +85,18 @@ public class Booking {
     }
 
     // Getters and Setters
+    @OneToOne(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Payment payment;
+
+    // Getters and Setters
+    public Payment getPayment() {
+        return payment;
+    }
+
+    public void setPayment(Payment payment) {
+        this.payment = payment;
+    }
+
     public Long getId() {
         return id;
     }
@@ -230,6 +242,6 @@ public class Booking {
     }
 
     public enum BookingStatus {
-        PENDING, PENDING_PAYMENT, CONFIRMED, COMPLETED, CANCELLED
+        PENDING, PENDING_PAYMENT, CONFIRMED, ACCEPTED, ARRIVED, IN_PROGRESS, REVIEW_PENDING, COMPLETED, CANCELLED
     }
 }

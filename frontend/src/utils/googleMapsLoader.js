@@ -5,7 +5,7 @@ let isLoaded = false;
 let loadPromise = null;
 
 export const loadGoogleMaps = (apiKey) => {
-  if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+  if (!apiKey || apiKey === 'YOUR_API_KEY_HERE' || apiKey === 'YOUR_KEY') {
     return Promise.reject(new Error('GOOGLE_MAPS_KEY_MISSING'));
   }
   if (isLoaded) return Promise.resolve(window.google);
@@ -31,3 +31,4 @@ export const loadGoogleMaps = (apiKey) => {
 
   return loadPromise;
 };
+

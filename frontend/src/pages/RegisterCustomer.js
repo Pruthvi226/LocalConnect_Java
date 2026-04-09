@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { User, Mail, Lock, Phone, MapPin, ArrowRight, Eye, EyeOff, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const RegisterCustomer = () => {
+const RegisterUser = () => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -29,12 +29,12 @@ const RegisterCustomer = () => {
     setError('');
 
     if (!formData.username || !formData.email || !formData.password || !formData.fullName) {
-      setError('Essential fields are missing in the registration matrix.');
+      setError('Please fill in all required fields.');
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('Security key must be at least 6 characters for optimal protection.');
+      setError('Password must be at least 6 characters.');
       return;
     }
 
@@ -85,7 +85,7 @@ const RegisterCustomer = () => {
               <Sparkles className="w-8 h-8 text-primary-600" />
             </motion.div>
             <h1 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">Join <span className="text-primary-600">ProxiSense.</span></h1>
-            <p className="text-slate-500 font-medium">Create your customer identity today</p>
+            <p className="text-slate-500 font-medium">Create your account to get started</p>
           </div>
 
           <AnimatePresence mode="wait">
@@ -110,7 +110,7 @@ const RegisterCustomer = () => {
                   <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 </div>
                 <h3 className="font-black text-lg mb-1">Registration Successful!</h3>
-                <p className="text-sm font-bold text-emerald-600/70">Welcome to ProxiSense! Perfecting your dashboard...</p>
+                <p className="text-sm font-bold text-emerald-600/70">Welcome to ProxiSense! Redirecting to login...</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -118,7 +118,7 @@ const RegisterCustomer = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-1">
-                <label className={labelClasses}>Full Legal Name</label>
+                <label className={labelClasses}>Full Name</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                     <User className="h-5 w-5 text-slate-300 group-focus-within:text-primary-500 transition-colors" />
@@ -136,7 +136,7 @@ const RegisterCustomer = () => {
               </div>
 
               <div className="space-y-1">
-                <label className={labelClasses}>Username Alias</label>
+                <label className={labelClasses}>Username</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                     <CheckCircle2 className="h-5 w-5 text-slate-300 group-focus-within:text-primary-500 transition-colors" />
@@ -174,7 +174,7 @@ const RegisterCustomer = () => {
               </div>
 
               <div className="space-y-1">
-                <label className={labelClasses}>Security Key / Password</label>
+                <label className={labelClasses}>Password</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-slate-300 group-focus-within:text-primary-500 transition-colors" />
@@ -241,11 +241,11 @@ const RegisterCustomer = () => {
                 disabled={loading}
                 className="w-full bg-primary-600 hover:bg-primary-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-primary-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group disabled:opacity-70"
               >
-                {loading ? (
+                 {loading ? (
                   <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
                 ) : (
                   <>
-                    Initialize Registration
+                    Create Account
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
@@ -255,18 +255,19 @@ const RegisterCustomer = () => {
 
           <div className="mt-10 pt-8 border-t border-slate-50 text-center">
             <p className="text-slate-400 font-bold text-sm">
-              Already have an identity?{' '}
+              Already have an account?{' '}
               <Link to="/login/customer" className="text-primary-600 hover:underline">Sign In</Link>
             </p>
           </div>
         </div>
         
         <p className="text-center mt-8 text-slate-400 text-xs font-medium">
-          By joining, you agree to our Hyperlocal Community Guidelines.
+          By joining, you agree to our Terms of Service and Privacy Policy.
         </p>
       </motion.div>
     </div>
   );
 };
 
-export default RegisterCustomer;
+export default RegisterUser;
+

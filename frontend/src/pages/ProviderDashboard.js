@@ -5,14 +5,17 @@ import {
   Plus, Edit2, Trash2, CheckCircle2, 
   Clock, XCircle, AlertCircle, 
   MessageSquare, DollarSign, Zap,
-  ChevronRight, Filter, Settings,
+  Filter, Settings,
   ShieldCheck, LayoutDashboard,
-  MoreVertical, ArrowUpRight, Search,
-  Calendar, MapPin, Star
+  ArrowUpRight, Search,
+  Calendar, MapPin, Star, Phone,
+  ArrowRight
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import { providerService } from '../services/providerService';
 import { serviceService } from '../services/serviceService';
+import { userService } from '../services/userService';
+import Pagination from '../components/Pagination';
 
 const ProviderDashboard = () => {
   const [summary, setSummary] = useState(null);
@@ -22,6 +25,19 @@ const ProviderDashboard = () => {
   const [error, setError] = useState(null);
   const [statusUpdating, setStatusUpdating] = useState({});
   const [proofImages, setProofImages] = useState({});
+  const [transactions, setTransactions] = useState([]);
+  const [UserProfile, setUserProfile] = useState(null);
+  const [activeTab, setActiveTab] = useState('tasks'); // 'tasks', 'services', 'earnings'
+  
+  const [jobsPage, setJobsPage] = useState(0);
+  const [jobsTotalPages, setJobsTotalPages] = useState(0);
+  const [jobsTotalElements, setJobsTotalElements] = useState(0);
+  
+  const [txPage, setTxPage] = useState(0);
+  const [txTotalPages, setTxTotalPages] = useState(0);
+  const [txTotalElements, setTxTotalElements] = useState(0);
+  
+  const pageSize = 10;
   
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
@@ -29,30 +45,105 @@ const ProviderDashboard = () => {
     title: '', description: '', category: '', price: '', location: '', isAvailable: true
   });
   
+  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
+  const [payoutForm, setPayoutForm] = useState({
+    fullName: '', bankAccountNumber: '', ifscCode: '', upiId: ''
+  });
+  
   useEffect(() => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (activeTab === 'tasks') loadJobs();
+  }, [jobsPage]);
+
+  useEffect(() => {
+    if (activeTab === 'earnings') loadTransactions();
+  }, [txPage]);
+
   const loadData = async () => {
     try {
+      setError(null);
       setLoading(true);
-      const [summaryData, servicesData, bookingsData] = await Promise.all([
+      const [summaryData, servicesData, meData] = await Promise.all([
         providerService.getSummary(),
         providerService.getMyServices(),
-        providerService.getProviderBookings(),
+        userService.getMe().catch(() => null)
       ]);
       setSummary(summaryData);
       setServices(Array.isArray(servicesData) ? servicesData : []);
-      setBookings(Array.isArray(bookingsData) ? bookingsData : []);
+      
+      if (meData) {
+        setUserProfile(meData);
+        setPayoutForm({
+          fullName: meData.fullName || '',
+          bankAccountNumber: meData.bankAccountNumber || '',
+          ifscCode: meData.ifscCode || '',
+          upiId: meData.upiId || ''
+        });
+      }
+      
+      // Load first pages
+      await Promise.all([loadJobs(), loadTransactions()]);
     } catch (err) {
-      setError('Operational data sync failed. Retrying...');
+      setError('Something went wrong. Please try again.');
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const activeRequests = bookings.filter(b => ['PENDING', 'CONFIRMED'].includes(b.status));
+  const loadJobs = async () => {
+    try {
+      const data = await providerService.getProviderBookings({
+        page: jobsPage,
+        size: pageSize,
+        sort: 'createdAt,desc'
+      });
+      setBookings(data.content || []);
+      setJobsTotalPages(data.totalPages || 0);
+      setJobsTotalElements(data.totalElements || 0);
+    } catch (err) {
+      console.error('Error loading jobs:', err);
+    }
+  };
+
+  const loadTransactions = async () => {
+    try {
+      const data = await providerService.getProviderTransactions({
+        page: txPage,
+        size: pageSize,
+        sort: 'createdAt,desc'
+      });
+      setTransactions(data.content || []);
+      setTxTotalPages(data.totalPages || 0);
+      setTxTotalElements(data.totalElements || 0);
+    } catch (err) {
+      console.error('Error loading transactions:', err);
+    }
+  };
+
+  const handleConfirmPayment = async (paymentId) => {
+    try {
+      await providerService.confirmOfflinePayment(paymentId);
+      await loadData();
+    } catch (err) {
+      console.error('Payment confirmation failed:', err);
+    }
+  };
+
+  const getNextStatus = (currentStatus) => {
+    switch (currentStatus) {
+      case 'CONFIRMED': return { label: 'Accept Booking', next: 'ACCEPTED' };
+      case 'ACCEPTED': return { label: 'Mark as Arrived', next: 'ARRIVED' };
+      case 'ARRIVED': return { label: 'Start Service', next: 'IN_PROGRESS' };
+      case 'IN_PROGRESS': return { label: 'Mark as Completed', next: 'COMPLETED' };
+      default: return null;
+    }
+  };
+
+  const activeRequests = bookings.filter(b => !['COMPLETED', 'CANCELLED'].includes(b.status));
 
   const handleUpdateStatus = async (bookingId, newStatus) => {
     try {
@@ -60,11 +151,25 @@ const ProviderDashboard = () => {
       const imgs = proofImages[bookingId] || {};
       await providerService.updateBookingStatus(bookingId, newStatus, null, imgs.before, imgs.after);
       await loadData();
+      
+      // Clear images after update
+      setProofImages(prev => {
+        const next = { ...prev };
+        delete next[bookingId];
+        return next;
+      });
     } catch (err) { 
       console.error('Status update failed:', err);
     } finally {
       setStatusUpdating(prev => ({ ...prev, [bookingId]: false }));
     }
+  };
+
+  const handleProofImageChange = (bookingId, field, value) => {
+    setProofImages(prev => ({
+      ...prev,
+      [bookingId]: { ...prev[bookingId], [field]: value }
+    }));
   };
 
   const handleOpenServiceDialog = (service = null) => {
@@ -104,11 +209,41 @@ const ProviderDashboard = () => {
     } catch (err) { console.error(err); }
   };
 
+  const handleSavePayouts = async (e) => {
+    e.preventDefault();
+    try {
+      await userService.updateMe(payoutForm);
+      setPayoutDialogOpen(false);
+      loadData();
+    } catch (err) {
+      console.error('Failed to update payout settings', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 pt-32 px-6 flex flex-col items-center">
          <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-         <p className="font-black text-slate-400 uppercase tracking-widest text-xs">Syncing Ops Center...</p>
+         <p className="font-black text-slate-400 uppercase tracking-widest text-xs">Loading Dashboard...</p>
+      </div>
+    );
+  }
+
+  if (error && !summary) {
+    return (
+      <div className="min-h-screen bg-slate-50 pt-32 px-6">
+        <div className="container mx-auto max-w-2xl text-center">
+          <div className="bg-white p-8 rounded-[3rem] border border-red-100 shadow-premium">
+             <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-8 h-8" />
+             </div>
+             <h2 className="text-2xl font-black text-slate-800 mb-2">Service unavailable.</h2>
+             <p className="text-slate-500 font-medium mb-6">{error}</p>
+             <button onClick={loadData} className="bg-primary-600 hover:bg-primary-700 text-white font-black py-3 px-8 rounded-2xl shadow-xl shadow-primary-500/20 transition-all active:scale-95">
+                Reconnect
+             </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -122,10 +257,10 @@ const ProviderDashboard = () => {
            <div>
               <div className="flex items-center gap-3 text-primary-600 mb-2 font-black uppercase tracking-[0.2em] text-[10px]">
                  <LayoutDashboard className="w-4 h-4" />
-                 Provider Operations Center
+                 Provider Portfolio
               </div>
               <h1 className="text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
-                Control <span className="text-primary-600">Central.</span>
+                Provider <span className="text-primary-600">Dashboard</span>
               </h1>
            </div>
            <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm">
@@ -143,7 +278,14 @@ const ProviderDashboard = () => {
                 className="bg-primary-600 hover:bg-primary-700 text-white font-black py-3 px-8 rounded-2xl shadow-xl shadow-primary-500/20 transition-all active:scale-95 flex items-center gap-2"
               >
                  <Plus className="w-4 h-4" />
-                 Launch Service
+                 Add New Service
+              </button>
+              <button 
+                onClick={() => setPayoutDialogOpen(true)}
+                className="bg-white hover:bg-slate-50 text-slate-700 font-black py-3 px-6 border-2 border-slate-200 rounded-2xl shadow-sm transition-all active:scale-95 flex items-center gap-2"
+              >
+                 <Settings className="w-4 h-4" />
+                 Payout Settings
               </button>
            </div>
         </header>
@@ -151,10 +293,10 @@ const ProviderDashboard = () => {
         {/* Global Stats Grid */}
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
            {[
-             { label: 'Net Revenue', value: `₹${Number(summary?.totalRevenue || 0).toLocaleString()}`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50', trend: '+12% this month' },
-             { label: 'Active Tasks', value: activeRequests.length || 0, icon: Zap, color: 'text-amber-600', bg: 'bg-amber-50', trend: '3 new notifications' },
-             { label: 'Completion', value: '98%', icon: ShieldCheck, color: 'text-primary-600', bg: 'bg-primary-50', trend: 'Top 5% Expert' },
-             { label: 'Service Hub', value: services.length, icon: BarChart3, color: 'text-indigo-600', bg: 'bg-indigo-50', trend: 'Stable performance' },
+             { label: 'Total Earnings', value: `₹${Number(summary?.totalRevenue || 0).toLocaleString()}`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50', trend: 'Lifetime' },
+             { label: 'Active Jobs', value: activeRequests.length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', trend: 'Active now' },
+             { label: 'Completed Jobs', value: summary?.completedBookings || 0, icon: ShieldCheck, color: 'text-primary-600', bg: 'bg-primary-50', trend: 'Excellent' },
+             { label: 'My Services', value: services.length, icon: BarChart3, color: 'text-indigo-600', bg: 'bg-indigo-50', trend: 'Stable performance' },
            ].map((stat, i) => (
              <motion.div 
                key={i}
@@ -177,135 +319,204 @@ const ProviderDashboard = () => {
 
         <div className="grid lg:grid-cols-3 gap-12">
            
-           {/* Active Requests Inbox */}
+           {/* Main Work Area */}
            <div className="lg:col-span-2 space-y-12">
+
+              {/* Navigation Tabs */}
+              <div className="flex space-x-2 bg-slate-200/50 p-2 rounded-2xl">
+                <button 
+                   onClick={() => setActiveTab('tasks')}
+                   className={`flex-1 py-3 px-4 rounded-xl font-black text-sm transition-all ${activeTab === 'tasks' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                >Active Jobs ({activeRequests.length})</button>
+                <button 
+                   onClick={() => setActiveTab('services')}
+                   className={`flex-1 py-3 px-4 rounded-xl font-black text-sm transition-all ${activeTab === 'services' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                >My Services</button>
+                <button 
+                   onClick={() => setActiveTab('earnings')}
+                   className={`flex-1 py-3 px-4 rounded-xl font-black text-sm transition-all ${activeTab === 'earnings' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                >Earnings & Payouts</button>
+              </div>
+
+              {/* Active Requests Inbox */}
+              {activeTab === 'tasks' && (
               <section>
                  <div className="flex items-center justify-between mb-8 px-2">
-                    <h2 className="text-2xl font-black text-slate-900">Task Inbox</h2>
-                    <div className="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase tracking-widest">
-                       Priority Mode <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                    </div>
+                    <h2 className="text-2xl font-black text-slate-900">Active Pipeline</h2>
+                    <button 
+                      onClick={() => navigate('/provider/history')}
+                      className="flex items-center gap-2 text-primary-600 hover:text-primary-700 font-black text-xs uppercase tracking-widest transition-all group"
+                    >
+                       View All History <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </button>
                  </div>
 
                  {activeRequests.length === 0 ? (
-                   <div className="bg-white rounded-[3rem] p-16 text-center border border-slate-100 shadow-premium">
-                      <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                         <MessageSquare className="w-10 h-10 text-slate-200" />
-                      </div>
-                      <h4 className="text-xl font-black text-slate-800 mb-2">Inbox Clear</h4>
-                      <p className="text-slate-500 font-medium">All current requests have been processed.</p>
-                   </div>
+                    <div className="bg-white rounded-[3rem] p-16 text-center border border-slate-100 shadow-premium">
+                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                          <MessageSquare className="w-10 h-10 text-slate-200" />
+                       </div>
+                       <h4 className="text-xl font-black text-slate-800 mb-2">Workspace Clear</h4>
+                       <p className="text-slate-500 font-medium">No active tasks at the moment.</p>
+                    </div>
                  ) : (
-                   <div className="space-y-6">
-                      <AnimatePresence mode="popLayout">
-                        {activeRequests.map((booking) => (
-                           <motion.div 
-                            key={booking.id}
-                            layout
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-premium flex flex-col md:flex-row md:items-center gap-8 group"
-                           >
-                              <div className="w-16 h-16 bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0 border border-slate-50">
-                                 <img src={`https://i.pravatar.cc/100?u=${booking.user?.id || 'user'}`} alt="" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                 <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="text-lg font-black text-slate-900 truncate">
-                                       {booking.user?.fullName || 'ProxiSense Client'}
-                                    </h4>
-                                     <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
-                                        booking.status === 'CONFIRMED' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'
-                                     }`}>
-                                        {booking.status}
-                                     </span>
-                                     {booking.isEmergency && (
-                                       <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border bg-red-50 text-red-600 border-red-100 flex items-center gap-1">
-                                          <AlertCircle className="w-3 h-3" /> URGENT
-                                       </span>
-                                     )}
-                                 </div>
-                                 <p className="text-slate-500 font-bold text-sm mb-4">
-                                    Needs: <span className="text-primary-600 underline underline-offset-4">{booking.service?.title}</span>
-                                 </p>
-                                  <div className="flex flex-wrap gap-4 text-xs font-black text-slate-400 uppercase tracking-widest mt-2">
-                                     <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {dayjs(booking.bookingDate).format('MMM D, h:mm A')}</div>
-                                     <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {booking.service?.location}</div>
-                                     {booking.problemImageUrl && (
-                                       <div className="flex items-center gap-1.5">
-                                          <ArrowUpRight className="w-3.5 h-3.5" /> 
-                                          <a href={booking.problemImageUrl} target="_blank" rel="noreferrer" className="text-primary-600 underline">Image</a>
-                                       </div>
-                                     )}
-                                     {booking.totalPrice && (
-                                       <div className="flex items-center gap-1.5">
-                                          <DollarSign className="w-3.5 h-3.5" /> ₹{booking.totalPrice}
-                                       </div>
-                                     )}
+                    <div className="space-y-6">
+                       <AnimatePresence mode="popLayout">
+                         {activeRequests.map((booking) => {
+                            const nextAction = getNextStatus(booking.status);
+                            const isOfflinePaymentPending = booking.paymentMethod === 'OFFLINE' && booking.paymentStatus === 'PENDING';
+
+                            return (
+                               <motion.div 
+                                key={booking.id}
+                                layout
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-premium flex flex-col md:flex-row md:items-start gap-8 group"
+                               >
+                                  <div className="w-20 h-20 bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0 border border-slate-200/50 shadow-inner">
+                                     <img src={`https://i.pravatar.cc/150?u=${booking.Customer?.id || 'Customer'}`} alt="" className="w-full h-full object-cover" />
                                   </div>
-                              </div>
-                              <div className="flex md:flex-col gap-3">
-                                 {booking.status === 'PENDING' ? (
-                                    <button 
-                                      disabled={statusUpdating[booking.id]}
-                                      onClick={() => handleUpdateStatus(booking.id, 'CONFIRMED')}
-                                      className="flex-1 bg-slate-900 text-white font-black py-4 px-10 rounded-2xl text-sm hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50"
-                                    >
-                                       {statusUpdating[booking.id] ? 'Updating...' : 'Accept Request'}
-                                    </button>
-                                  ) : (
-                                     <div className="flex flex-col gap-3">
-                                         <div className="flex flex-col gap-2">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                                               <ShieldCheck className="w-3.5 h-3.5 text-green-500" /> ProxiSense Proof (Before / After)
-                                            </p>
-                                            <input 
-                                               type="url" 
-                                               placeholder="Before Image URL" 
-                                               className="text-xs p-3 rounded-xl bg-slate-50 border border-slate-100 focus:outline-none focus:border-primary-300"
-                                               value={proofImages[booking.id]?.before || ''}
-                                               onChange={(e) => setProofImages({...proofImages, [booking.id]: {...proofImages[booking.id], before: e.target.value}})}
-                                            />
-                                            <input 
-                                               type="url" 
-                                               placeholder="After Image URL (Proof of Work)" 
-                                               className="text-xs p-3 rounded-xl bg-slate-50 border border-green-100 focus:outline-none focus:border-green-400 border-2"
-                                               value={proofImages[booking.id]?.after || ''}
-                                               onChange={(e) => setProofImages({...proofImages, [booking.id]: {...proofImages[booking.id], after: e.target.value}})}
-                                            />
-                                         </div>
-                                         <div className="flex items-center gap-2 text-green-600 font-black text-xs uppercase tracking-widest bg-green-50 px-6 py-4 rounded-2xl border border-green-100">
-                                            <CheckCircle2 className="w-4 h-4" /> Fulfilling Job
-                                         </div>
+                                  <div className="flex-1 min-w-0">
+                                     <div className="flex flex-wrap items-center gap-2 mb-2">
+                                        <h4 className="text-xl font-black text-slate-900 truncate">
+                                           {booking.Customer?.fullName || 'ProxiSense Client'}
+                                        </h4>
+                                         <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${
+                                            booking.status === 'COMPLETED' ? 'bg-green-50 text-green-600 border-green-100' : 
+                                            booking.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                            booking.status === 'ARRIVED' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+                                            booking.status === 'REVIEW_PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                            'bg-slate-50 text-slate-600 border-slate-100'
+                                         }`}>
+                                            {booking.status.replace('_', ' ')}
+                                         </span>
+                                         {booking.isEmergency && (
+                                           <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border bg-red-50 text-red-600 border-red-100 flex items-center gap-1 shadow-sm">
+                                              <Zap className="w-3 h-3" /> URGENT
+                                           </span>
+                                         )}
                                      </div>
-                                  )}
-                                  <div className="flex gap-2">
-                                     <button 
-                                       disabled={statusUpdating[booking.id]}
-                                       onClick={() => handleUpdateStatus(booking.id, 'COMPLETED')}
-                                       className="flex-1 p-4 bg-green-50 text-green-600 rounded-xl border border-green-100 hover:bg-green-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-black text-xs uppercase"
-                                     >
-                                        <CheckCircle2 className="w-5 h-5" />
-                                        Complete
-                                     </button>
-                                    <button 
-                                      disabled={statusUpdating[booking.id]}
-                                      onClick={() => handleUpdateStatus(booking.id, 'CANCELLED')}
-                                      className="p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 hover:bg-red-100 transition-all active:scale-95 disabled:opacity-50"
-                                    >
-                                       <XCircle className="w-5 h-5" />
-                                    </button>
-                                 </div>
-                              </div>
-                           </motion.div>
-                        ))}
-                      </AnimatePresence>
-                   </div>
+                                     <p className="text-slate-500 font-bold text-sm mb-6">
+                                        Fulfilling Service: <span className="text-primary-600 underline decoration-2 underline-offset-4">{booking.service?.title}</span>
+                                     </p>
+                                     <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <div>
+                                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Schedule</p>
+                                           <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                              <Calendar className="w-3.5 h-3.5" /> {dayjs(booking.bookingDate).format('MMM D, h:mm A')}
+                                           </p>
+                                        </div>
+                                        <div>
+                                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quote</p>
+                                           <p className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                                              <DollarSign className="w-3.5 h-3.5 text-green-600" /> ₹{booking.totalPrice}
+                                           </p>
+                                        </div>
+                                     </div>
+                                     <div className="flex flex-wrap gap-4 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                        <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-300" /> {booking.service?.location}</div>
+                                        {booking.problemImageUrl && (
+                                          <a href={booking.problemImageUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-primary-600 hover:text-primary-700 transition-colors">
+                                             <ArrowUpRight className="w-3.5 h-3.5" /> Client Photos
+                                          </a>
+                                        )}
+                                     </div>
+                                  </div>
+
+                                  <div className="flex flex-col gap-3 w-full md:w-64">
+                                     {booking.status === 'ARRIVED' && (
+                                       <div className="mb-2 p-3 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
+                                          <div className="flex justify-between items-center mb-2 px-1">
+                                             <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest leading-none">Proof: Before Service</p>
+                                             <span className="text-[8px] font-bold text-indigo-300 uppercase italic">Optional</span>
+                                          </div>
+                                          <input 
+                                            type="text"
+                                            placeholder="Image URL (recommended)..."
+                                            value={proofImages[booking.id]?.before || ''}
+                                            onChange={(e) => handleProofImageChange(booking.id, 'before', e.target.value)}
+                                            className="w-full bg-white border border-indigo-200/50 rounded-xl py-2 px-3 text-[10px] font-bold text-slate-700 focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
+                                          />
+                                       </div>
+                                     )}
+                                     {booking.status === 'IN_PROGRESS' && (
+                                       <div className="mb-2 p-3 bg-green-50/50 rounded-2xl border border-green-100/50">
+                                          <div className="flex justify-between items-center mb-2 px-1">
+                                             <p className="text-[9px] font-black text-green-400 uppercase tracking-widest leading-none">Completion Photo</p>
+                                             <span className="text-[8px] font-bold text-green-300 uppercase italic">Optional</span>
+                                          </div>
+                                          <input 
+                                            type="text"
+                                            placeholder="Image URL (recommended)..."
+                                            value={proofImages[booking.id]?.after || ''}
+                                            onChange={(e) => handleProofImageChange(booking.id, 'after', e.target.value)}
+                                            className="w-full bg-white border border-green-200/50 rounded-xl py-2 px-3 text-[10px] font-bold text-slate-700 focus:outline-none focus:border-green-500 transition-all shadow-inner"
+                                          />
+                                       </div>
+                                     )}
+                                     {nextAction && (
+                                        <button 
+                                          disabled={statusUpdating[booking.id]}
+                                          onClick={() => handleUpdateStatus(booking.id, nextAction.next)}
+                                          className={`w-full font-black py-4 px-6 rounded-2xl text-sm transition-all active:scale-95 disabled:opacity-50 shadow-lg ${
+                                             nextAction.next === 'ACCEPTED' ? 'bg-slate-900 text-white hover:bg-black shadow-slate-200' :
+                                             nextAction.next === 'ARRIVED' ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200' :
+                                             nextAction.next === 'IN_PROGRESS' ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200' :
+                                             'bg-green-600 text-white hover:bg-green-700 shadow-green-200'
+                                          }`}
+                                        >
+                                           {statusUpdating[booking.id] ? (
+                                             <div className="flex items-center gap-2">
+                                               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                               Updating...
+                                             </div>
+                                           ) : nextAction.label}
+                                        </button>
+                                     )}
+                                     {isOfflinePaymentPending && (
+                                        <button 
+                                          onClick={() => handleConfirmPayment(booking.paymentId)}
+                                          className="w-full bg-orange-100 text-orange-700 font-black py-4 px-6 rounded-2xl text-sm border-2 border-orange-200 hover:bg-orange-200 transition-all flex items-center justify-center gap-2"
+                                        >
+                                           <CheckCircle2 className="w-5 h-5" /> Confirm UPI/Cash
+                                        </button>
+                                     )}
+                                     <div className="flex gap-2">
+                                        <button 
+                                          disabled={statusUpdating[booking.id] || booking.status === 'CANCELLED'}
+                                          onClick={() => handleUpdateStatus(booking.id, 'CANCELLED')}
+                                          className="flex-1 p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 hover:bg-red-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-black text-[10px] uppercase"
+                                        >
+                                           <Trash2 className="w-4 h-4" /> {booking.status === 'CONFIRMED' ? 'Reject Job' : 'Cancel Action'}
+                                        </button>
+                                        <a href={`tel:${booking.Customer?.phone || ''}`} className="p-4 bg-slate-100 text-slate-500 rounded-2xl border border-slate-200 hover:bg-slate-200 transition-all flex items-center justify-center">
+                                           <Phone className="w-5 h-5" />
+                                        </a>
+                                     </div>
+                                  </div>
+                               </motion.div>
+                            );
+                         })}
+                       </AnimatePresence>
+                       
+                       {bookings.length > 0 && (
+                         <Pagination 
+                           currentPage={jobsPage}
+                           totalPages={jobsTotalPages}
+                           onPageChange={setJobsPage}
+                           totalElements={jobsTotalElements}
+                           size={pageSize}
+                         />
+                       )}
+                    </div>
                  )}
               </section>
+              )}
 
               {/* Service Inventory */}
+              {activeTab === 'services' && (
               <section>
                  <div className="bg-white rounded-[3rem] p-8 lg:p-12 border border-slate-100 shadow-premium overflow-hidden">
                     <div className="flex items-center justify-between mb-10">
@@ -358,6 +569,70 @@ const ProviderDashboard = () => {
                     </div>
                  </div>
               </section>
+              )}
+
+              {/* Earnings & Transactions */}
+              {activeTab === 'earnings' && (
+              <section>
+                 <div className="bg-white rounded-[3rem] p-8 lg:p-12 border border-slate-100 shadow-premium overflow-hidden">
+                    <div className="flex items-center justify-between mb-10">
+                       <h2 className="text-2xl font-black text-slate-800 tracking-tight">Financial Ledger</h2>
+                       {(!UserProfile?.upiId && !UserProfile?.bankAccountNumber) && (
+                         <div className="flex items-center gap-2 text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-100 cursor-pointer" onClick={() => setPayoutDialogOpen(true)}>
+                           <AlertCircle className="w-4 h-4"/> Missing Payout Method
+                         </div>
+                       )}
+                    </div>
+                    
+                    <div className="overflow-x-auto">
+                       <table className="w-full text-left">
+                          <thead>
+                             <tr className="border-b border-slate-50">
+                                <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Transaction ID</th>
+                                <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Date</th>
+                                <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
+                                <th className="pb-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Amount</th>
+                             </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                             {transactions.length === 0 && (
+                               <tr><td colSpan="4" className="text-center py-8 text-slate-400 font-bold text-sm">No transactions to display.</td></tr>
+                             )}
+                             {transactions.map((tx) => (
+                                <tr key={tx.id} className="group transition-colors hover:bg-slate-50/50">
+                                   <td className="py-6 pr-4">
+                                      <p className="font-black text-slate-800 leading-tight mb-1">TX-{tx.id}</p>
+                                      <p className="text-xs font-bold text-slate-400 tracking-tight">Booking ID: {tx.paymentId}</p>
+                                   </td>
+                                   <td className="py-6 pr-4">
+                                      <p className="font-bold text-slate-700">{dayjs(tx.createdAt).format('MMM D, YYYY')}</p>
+                                      <p className="text-xs text-slate-400">{dayjs(tx.createdAt).format('h:mm A')}</p>
+                                   </td>
+                                   <td className="py-6 pr-4">
+                                      <span className={`px-2 py-1 rounded-md text-[10px] font-black tracking-widest ${tx.payoutStatus === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                         {tx.payoutStatus}
+                                      </span>
+                                   </td>
+                                   <td className="py-6 text-right">
+                                      <p className="font-black text-green-600">₹{tx.amount}</p>
+                                   </td>
+                                </tr>
+                             ))}
+                          </tbody>
+                       </table>
+                    </div>
+                    <div className="mt-8">
+                       <Pagination 
+                         currentPage={txPage}
+                         totalPages={txTotalPages}
+                         onPageChange={setTxPage}
+                         totalElements={txTotalElements}
+                         size={pageSize}
+                       />
+                    </div>
+                 </div>
+              </section>
+              )}
            </div>
 
            {/* Performance sidebar */}
@@ -391,10 +666,11 @@ const ProviderDashboard = () => {
 
                     <div className="mt-12 p-6 bg-white/5 border border-white/10 rounded-[2rem] flex items-center justify-between">
                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Average Review</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Reputation Score</p>
                           <div className="flex items-center gap-1.5">
-                             <span className="text-2xl font-black">4.9</span>
+                             <span className="text-2xl font-black">{UserProfile?.averageRating?.toFixed(1) || '0.0'}</span>
                              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                             <span className="text-[10px] text-white/40 font-bold ml-1">({UserProfile?.totalReviews || 0} reviews)</span>
                           </div>
                        </div>
                        <button className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition-colors">
@@ -528,6 +804,97 @@ const ProviderDashboard = () => {
                       </button>
                    </div>
                 </form>
+              </motion.div>
+           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Payout Settings Modal */}
+      <AnimatePresence>
+        {payoutDialogOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 mt-12">
+             <motion.div 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => setPayoutDialogOpen(false)}
+               className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+             ></motion.div>
+             <motion.div 
+               initial={{ opacity: 0, scale: 0.9, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.9, y: 20 }}
+               className="relative bg-white rounded-[3rem] p-10 max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+             >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-green-50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                
+                <h3 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">
+                   Payout Configuration
+                </h3>
+                <p className="text-sm font-bold text-slate-500 mb-8 tracking-tight">Configure where you want to receive your earnings.</p>
+                
+                <form onSubmit={handleSavePayouts} className="grid md:grid-cols-2 gap-6">
+                   <div className="md:col-span-2">
+                      <label className="text-xs font-black uppercase text-slate-500 tracking-widest mb-2 block">Full Name (As per Bank)</label>
+                      <input 
+                        className="w-full bg-slate-50 border border-slate-100 py-4 px-6 rounded-2xl font-bold text-slate-900 focus:outline-none focus:border-green-500 transition-colors"
+                        placeholder="John Doe"
+                        value={payoutForm.fullName}
+                        onChange={(e) => setPayoutForm({ ...payoutForm, fullName: e.target.value })}
+                      />
+                   </div>
+                   <div className="md:col-span-2">
+                      <label className="text-xs font-black uppercase text-slate-500 tracking-widest mb-2 block">UPI ID (Fastest)</label>
+                      <input 
+                        className="w-full bg-slate-50 border border-slate-100 py-4 px-6 rounded-2xl font-bold text-slate-900 focus:outline-none focus:border-green-500 transition-colors"
+                        placeholder="yourname@upi"
+                        value={payoutForm.upiId}
+                        onChange={(e) => setPayoutForm({ ...payoutForm, upiId: e.target.value })}
+                      />
+                   </div>
+                   <div className="md:col-span-2 relative">
+                      <div className="absolute inset-0 flex items-center">
+                         <div className="w-full border-t border-slate-100"></div>
+                      </div>
+                      <div className="relative flex justify-center text-xs font-black uppercase tracking-widest text-slate-300 bg-white">
+                         <span className="px-4 bg-white">OR BANK DETAILS</span>
+                      </div>
+                   </div>
+                   <div>
+                      <label className="text-xs font-black uppercase text-slate-500 tracking-widest mb-2 block">Bank Account Number</label>
+                      <input 
+                        className="w-full bg-slate-50 border border-slate-100 py-4 px-6 rounded-2xl font-bold text-slate-900 focus:outline-none focus:border-green-500 transition-colors"
+                        placeholder="•••• •••• •••• 1234"
+                        value={payoutForm.bankAccountNumber}
+                        onChange={(e) => setPayoutForm({ ...payoutForm, bankAccountNumber: e.target.value })}
+                      />
+                   </div>
+                   <div>
+                      <label className="text-xs font-black uppercase text-slate-500 tracking-widest mb-2 block">IFSC Code</label>
+                      <input 
+                        className="w-full bg-slate-50 border border-slate-100 py-4 px-6 rounded-2xl font-bold text-slate-900 focus:outline-none focus:border-green-500 transition-colors"
+                        placeholder="ABCD0123456"
+                        value={payoutForm.ifscCode}
+                        onChange={(e) => setPayoutForm({ ...payoutForm, ifscCode: e.target.value })}
+                      />
+                   </div>
+                   
+                   <div className="md:col-span-2 pt-6 flex gap-4">
+                      <button 
+                        type="submit"
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-green-500/20 active:scale-95 transition-all outline-none"
+                      >
+                         Secure Payout Info
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setPayoutDialogOpen(false)}
+                        className="px-10 py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl hover:bg-slate-200 transition-all outline-none"
+                      >
+                         Cancel
+                      </button>
+                   </div>
+                </form>
              </motion.div>
           </div>
         )}
@@ -537,3 +904,4 @@ const ProviderDashboard = () => {
 };
 
 export default ProviderDashboard;
+

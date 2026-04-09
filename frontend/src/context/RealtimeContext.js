@@ -11,7 +11,7 @@ export const useRealtime = () => {
 };
 
 export const RealtimeProvider = ({ children }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { Customer, isAuthenticated } = useAuth();
   const [lastMessage, setLastMessage] = useState(null);
   const [lastNotification, setLastNotification] = useState(null);
 
@@ -24,7 +24,7 @@ export const RealtimeProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !Customer) {
       disconnectRealtime();
       return;
     }
@@ -32,7 +32,7 @@ export const RealtimeProvider = ({ children }) => {
     if (!token) return;
     connectRealtime(token, handleMessage, handleNotification);
     return () => disconnectRealtime();
-  }, [isAuthenticated, user, handleMessage, handleNotification]);
+  }, [isAuthenticated, Customer, handleMessage, handleNotification]);
 
   const value = {
     lastMessage,
@@ -48,3 +48,4 @@ export const RealtimeProvider = ({ children }) => {
     </RealtimeContext.Provider>
   );
 };
+

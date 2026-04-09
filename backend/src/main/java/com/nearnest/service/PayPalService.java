@@ -10,10 +10,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.lang.NonNull;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.Objects;
 
 @Service
 public class PayPalService {
@@ -58,13 +60,15 @@ public class PayPalService {
         headers.set("Authorization", "Basic " + auth);
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         HttpEntity<String> req = new HttpEntity<>("grant_type=client_credentials", headers);
-        ResponseEntity<Map> res = restTemplate.exchange(baseUrl() + "/v1/oauth2/token", HttpMethod.POST, req, Map.class);
-        return (String) res.getBody().get("access_token");
+        ResponseEntity<Map<String, Object>> res = restTemplate.exchange(baseUrl() + "/v1/oauth2/token", Objects.requireNonNull(HttpMethod.POST), req, (Class<Map<String, Object>>) (Class<?>) Map.class);
+        Map<String, Object> body = res.getBody();
+        if (body == null) throw new RuntimeException("PayPal OAuth response body is null");
+        return (String) body.get("access_token");
     }
 
     @Transactional
     @SuppressWarnings("unchecked")
-    public PayPalOrderResponse createOrder(Long bookingId) {
+    public PayPalOrderResponse createOrder(@NonNull Long bookingId) {
         if (!isConfigured()) throw new RuntimeException("PayPal is not configured");
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) throw new RuntimeException("Not authenticated");
@@ -113,8 +117,9 @@ public class PayPalService {
         body.put("purchase_units", units);
 
         HttpEntity<Map<String, Object>> req = new HttpEntity<>(body, headers);
-        ResponseEntity<Map> res = restTemplate.exchange(baseUrl() + "/v2/checkout/orders", HttpMethod.POST, req, Map.class);
+        ResponseEntity<Map<String, Object>> res = restTemplate.exchange(baseUrl() + "/v2/checkout/orders", Objects.requireNonNull(HttpMethod.POST), req, (Class<Map<String, Object>>) (Class<?>) Map.class);
         Map<String, Object> resBody = res.getBody();
+        if (resBody == null) throw new RuntimeException("PayPal create order response body is null");
         String orderId = (String) resBody.get("id");
         payment.setTransactionId(orderId);
         paymentRepository.save(payment);
@@ -134,7 +139,7 @@ public class PayPalService {
 
     @Transactional
     @SuppressWarnings("unchecked")
-    public PaymentDto captureOrder(String orderId) {
+    public PaymentDto captureOrder(@NonNull String orderId) {
         if (!isConfigured()) throw new RuntimeException("PayPal is not configured");
         List<Payment> payments = paymentRepository.findByTransactionId(orderId);
         if (payments.isEmpty()) throw new RuntimeException("Order not found");
@@ -145,8 +150,9 @@ public class PayPalService {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<Void> req = new HttpEntity<>(headers);
-        ResponseEntity<Map> res = restTemplate.exchange(baseUrl() + "/v2/checkout/orders/" + orderId + "/capture", HttpMethod.POST, req, Map.class);
+        ResponseEntity<Map<String, Object>> res = restTemplate.exchange(baseUrl() + "/v2/checkout/orders/" + orderId + "/capture", Objects.requireNonNull(HttpMethod.POST), req, (Class<Map<String, Object>>) (Class<?>) Map.class);
         Map<String, Object> resBody = res.getBody();
+        if (resBody == null) throw new RuntimeException("PayPal capture response body is null");
         String status = (String) resBody.get("status");
         if (!"COMPLETED".equals(status)) {
             throw new RuntimeException("PayPal capture failed: " + status);
@@ -161,8 +167,10 @@ public class PayPalService {
         booking.setStatus(Booking.BookingStatus.CONFIRMED);
         bookingRepository.save(booking);
 
+        User provider = payment.getBooking().getService().getProvider();
+        if (provider == null) throw new RuntimeException("Provider not found for booking");
         notificationService.createNotification(
-                payment.getBooking().getService().getProvider(),
+                provider,
                 "Payment Received",
                 "Payment received for booking #" + payment.getBooking().getId(),
                 com.nearnest.model.Notification.NotificationType.PAYMENT_RECEIVED,

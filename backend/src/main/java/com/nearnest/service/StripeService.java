@@ -12,6 +12,7 @@ import com.stripe.net.Webhook;
 import com.stripe.param.PaymentIntentCreateParams;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.lang.NonNull;
 
 import jakarta.annotation.PostConstruct;
 import java.util.List;
@@ -49,7 +50,7 @@ public class StripeService {
         return secretKey != null && !secretKey.isBlank();
     }
 
-    public StripeIntentResponse createPaymentIntent(Long bookingId) {
+    public StripeIntentResponse createPaymentIntent(@NonNull Long bookingId) {
         if (!isConfigured()) throw new RuntimeException("Stripe is not configured");
         com.nearnest.model.User currentUser = authService.getCurrentUser();
         if (currentUser == null) throw new RuntimeException("Not authenticated");
@@ -91,7 +92,7 @@ public class StripeService {
         }
     }
 
-    public Payment createOrGetPaymentForStripe(Booking booking) {
+    public Payment createOrGetPaymentForStripe(@NonNull Booking booking) {
         Optional<Payment> existing = paymentRepository.findByBooking(booking);
         if (existing.isPresent()) return existing.get();
         Payment p = new Payment();
@@ -114,7 +115,7 @@ public class StripeService {
         public String getPaymentIntentId() { return paymentIntentId; }
     }
 
-    public void handleWebhook(String payload, String signature) {
+    public void handleWebhook(@NonNull String payload, @NonNull String signature) {
         if (webhookSecret == null || webhookSecret.isBlank()) {
             throw new RuntimeException("Stripe webhook secret not configured");
         }
@@ -139,8 +140,10 @@ public class StripeService {
                     booking.setStatus(Booking.BookingStatus.CONFIRMED);
                     bookingRepository.save(booking);
 
+                    com.nearnest.model.User provider = payment.getBooking().getService().getProvider();
+                    if (provider == null) throw new RuntimeException("Provider not found for booking");
                     notificationService.createNotification(
-                            payment.getBooking().getService().getProvider(),
+                            provider,
                             "Payment Received",
                             "Payment received for booking #" + payment.getBooking().getId(),
                             com.nearnest.model.Notification.NotificationType.PAYMENT_RECEIVED,

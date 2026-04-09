@@ -10,6 +10,7 @@ import com.nearnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.lang.NonNull;
 
 import java.util.List;
 
@@ -33,13 +34,13 @@ public class UserService {
         return UserProfileDto.fromEntity(user);
     }
 
-    public UserProfileDto getUserProfileById(Long id) {
+    public UserProfileDto getUserProfileById(@NonNull Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         return UserProfileDto.fromEntity(user);
     }
 
-    public UserProfileDto updateUserProfile(UserUpdateDto updateDto) {
+    public UserProfileDto updateUserProfile(@NonNull UserUpdateDto updateDto) {
         User user = authService.getCurrentUser();
         if (user == null) {
             throw new ResourceNotFoundException("User not authenticated");
@@ -50,13 +51,16 @@ public class UserService {
         if (updateDto.getAddress() != null) user.setAddress(updateDto.getAddress());
         if (updateDto.getBio() != null) user.setBio(updateDto.getBio());
         if (updateDto.getProfileImageUrl() != null) user.setProfileImageUrl(updateDto.getProfileImageUrl());
+        if (updateDto.getBankAccountNumber() != null) user.setBankAccountNumber(updateDto.getBankAccountNumber());
+        if (updateDto.getIfscCode() != null) user.setIfscCode(updateDto.getIfscCode());
+        if (updateDto.getUpiId() != null) user.setUpiId(updateDto.getUpiId());
 
         User updatedUser = userRepository.save(user);
         return UserProfileDto.fromEntity(updatedUser);
     }
 
     @Transactional
-    public void recalculateTrustScore(Long providerId) {
+    public void recalculateTrustScore(@NonNull Long providerId) {
         User provider = userRepository.findById(providerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
 

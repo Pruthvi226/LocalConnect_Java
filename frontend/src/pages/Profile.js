@@ -66,7 +66,7 @@ const Profile = () => {
                     fontSize: '3rem',
                   }}
                 >
-                  {user.fullName?.charAt(0)?.toUpperCase() || user.username.charAt(0).toUpperCase()}
+                  {user.fullName?.charAt(0)?.toUpperCase() || user.username?.charAt(0)?.toUpperCase() || 'U'}
                 </Avatar>
                 <Typography variant="h5" gutterBottom>
                   {user.fullName || user.username}
@@ -168,3 +168,4 @@ const Profile = () => {
 };
 
 export default Profile;
+

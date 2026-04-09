@@ -8,6 +8,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.lang.NonNull;
 
 import java.math.BigDecimal;
 
@@ -30,12 +31,14 @@ public class DataInitializer {
                         u.setUsername("demo_provider");
                         u.setEmail("demo_provider@example.com");
                         u.setPassword(passwordEncoder.encode("Demo@123"));
-                        u.setFullName("Demo Provider");
+                        u.setFullName("ProxiSense Premier Expert");
                         u.setPhone("9999999999");
                         u.setAddress("Bangalore, India");
                         u.setRole(User.Role.PROVIDER);
                         return userRepository.save(u);
                     });
+
+            if (provider == null) throw new RuntimeException("Demo provider could not be created/found");
 
             serviceRepository.save(createService(provider, "Plumber – Pipe Leak Repair",
                     "Quick and reliable pipe leak repair for kitchens and bathrooms.",
@@ -61,7 +64,8 @@ public class DataInitializer {
         };
     }
 
-    private Service createService(User provider,
+    @NonNull
+    private Service createService(@NonNull User provider,
                                   String title,
                                   String description,
                                   String category,

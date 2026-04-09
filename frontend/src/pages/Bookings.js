@@ -7,37 +7,62 @@ import {
   XCircle, CheckCircle2, AlertCircle, 
   MoreHorizontal, ArrowUpRight, ShieldAlert,
   ShieldCheck, ArrowRight, Search, Navigation, 
-  ChevronDown, PhoneCall, LocateFixed, Eye
+  ChevronDown, PhoneCall, LocateFixed, Eye, Star
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import { bookingService } from '../services/bookingService';
 import { ServiceCardSkeleton } from '../components/Skeleton';
+import Pagination from '../components/Pagination';
+import ReviewModal from '../components/ReviewModal';
+import { toast } from 'react-toastify';
+import axios from 'axios';
 
 const Bookings = () => {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('upcoming');
+  const [activeTab, setActiveTab] = useState('all');
   const [trackingBookingId, setTrackingBookingId] = useState(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [pageSize] = useState(10);
 
   useEffect(() => {
     loadBookings();
-  }, []);
+  }, [page]);
 
   const loadBookings = async () => {
     try {
       setLoading(true);
-      const data = await bookingService.getAll();
-      setBookings(data);
+      const data = await bookingService.getAll({
+        page: page,
+        size: pageSize,
+        sort: 'createdAt,desc'
+      });
+      
+      setBookings(data.content);
+      setTotalPages(data.totalPages);
+      setTotalElements(data.totalElements);
     } catch (err) {
       setError('Connection interrupted. Unable to sync projects.');
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenReview = (booking) => {
+    setSelectedBooking(booking);
+    setIsReviewModalOpen(true);
+  };
+
+  const handleReviewSuccess = () => {
+    loadBookings();
   };
 
   const handleCancelConfirm = async () => {
@@ -57,6 +82,8 @@ const Bookings = () => {
         return { label: 'Active', color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100', icon: CheckCircle2 };
       case 'PENDING':
         return { label: 'In Review', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100', icon: Clock };
+      case 'REVIEW_PENDING':
+        return { label: 'Review Required', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100', icon: Star };
       case 'COMPLETED':
         return { label: 'Finalized', color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100', icon: CheckCircle2 };
       case 'CANCELLED':
@@ -93,10 +120,13 @@ const Bookings = () => {
               </div>
               <h1 className="text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">Your Expertise <span className="text-primary-600">Sync.</span></h1>
            </div>
-           <div className="flex items-center gap-4 bg-white p-2 rounded-[2rem] border border-slate-100 shadow-sm">
-              <button className="px-6 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-wider">All Projects</button>
-              <button className="px-6 py-2 rounded-2xl text-slate-400 text-xs font-black uppercase tracking-wider hover:text-slate-600">Active</button>
-              <button className="px-6 py-2 rounded-2xl text-slate-400 text-xs font-black uppercase tracking-wider hover:text-slate-600">Past</button>
+           <div className="flex items-center gap-4 bg-white p-2 rounded-[2rem] border border-slate-100 shadow-sm overflow-x-auto invisible-scrollbar">
+              <button onClick={() => setActiveTab('all')} className={`px-6 py-2 rounded-2xl text-xs font-black uppercase tracking-wider transition-colors ${activeTab === 'all' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:text-slate-600'}`}>All Projects</button>
+              <button onClick={() => setActiveTab('active')} className={`px-6 py-2 rounded-2xl text-xs font-black uppercase tracking-wider transition-colors ${activeTab === 'active' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:text-slate-600'}`}>Active</button>
+              <button onClick={() => setActiveTab('past')} className={`px-6 py-2 rounded-2xl text-xs font-black uppercase tracking-wider transition-colors ${activeTab === 'past' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:text-slate-600'}`}>Past</button>
+              <button onClick={() => setActiveTab('payments')} className={`px-6 py-2 rounded-2xl text-xs font-black uppercase tracking-wider transition-colors ${activeTab === 'payments' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:text-slate-600 flex items-center gap-2'}`}>
+                <CreditCard className="w-4 h-4" /> My Payments
+              </button>
            </div>
         </header>
 
@@ -120,10 +150,55 @@ const Bookings = () => {
                 Discover Experts
              </button>
           </div>
+        ) : activeTab === 'payments' ? (
+          <div className="bg-white rounded-[3rem] p-8 lg:p-12 border border-slate-100 shadow-premium overflow-hidden">
+             <div className="flex items-center justify-between mb-10">
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Payment History</h2>
+             </div>
+             <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                   <thead>
+                      <tr className="border-b border-slate-50">
+                         <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Service</th>
+                         <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Date</th>
+                         <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
+                         <th className="pb-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Amount</th>
+                      </tr>
+                   </thead>
+                   <tbody className="divide-y divide-slate-50">
+                      {bookings.filter(b => b.status === 'COMPLETED' || b.status === 'CONFIRMED').length === 0 && (
+                        <tr><td colSpan="4" className="text-center py-8 text-slate-400 font-bold text-sm">No payment history.</td></tr>
+                      )}
+                      {bookings.filter(b => b.status === 'COMPLETED' || b.status === 'CONFIRMED').map((b) => (
+                         <tr key={b.id} className="group transition-colors hover:bg-slate-50/50">
+                            <td className="py-6 pr-4">
+                               <p className="font-black text-slate-800 leading-tight mb-1">{b.service?.title}</p>
+                            </td>
+                            <td className="py-6 pr-4">
+                               <p className="font-bold text-slate-700">{dayjs(b.bookingDate).format('MMM D, YYYY')}</p>
+                            </td>
+                            <td className="py-6 pr-4">
+                               <span className="px-2 py-1 rounded-md text-[10px] font-black tracking-widest bg-green-100 text-green-700">
+                                  PAID
+                               </span>
+                            </td>
+                            <td className="py-6 text-right">
+                               <p className="font-black text-slate-800">₹{b.totalPrice || Math.round(b.service?.price)}</p>
+                            </td>
+                         </tr>
+                      ))}
+                   </tbody>
+                </table>
+             </div>
+          </div>
         ) : (
           <div className="space-y-8">
             <AnimatePresence mode="popLayout">
-              {bookings.map((booking) => {
+              {bookings.filter(b => {
+                if (activeTab === 'active') return b.status === 'PENDING' || b.status === 'CONFIRMED';
+                if (activeTab === 'past') return b.status === 'COMPLETED' || b.status === 'CANCELLED';
+                return true;
+              }).map((booking) => {
                 const config = getStatusConfig(booking.status);
                 const Icon = config.icon;
                 
@@ -257,40 +332,57 @@ const Bookings = () => {
                           </div>
                        </div>
 
-                       {/* Action Hub */}
-                       <div className="w-full lg:w-auto flex flex-col gap-3 lg:border-l lg:border-slate-50 lg:pl-8">
-                          {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' ? (
-                            <>
-                               <button 
-                                onClick={() => navigate(`/checkout/${booking.id}`)}
-                                className="bg-primary-600 hover:bg-primary-700 text-white font-black py-3 px-8 rounded-2xl shadow-lg shadow-primary-500/20 active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
-                               >
-                                  <ArrowUpRight className="w-4 h-4" />
-                                  Complete Project
-                               </button>
-                               <button 
-                                onClick={() => navigate('/messages', { state: { partnerId: booking.service?.provider?.id, partnerName: booking.service?.provider?.fullName } })}
-                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black py-3 px-8 rounded-2xl active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
-                               >
-                                  <MessageSquare className="w-4 h-4" />
-                                  Chat Expert
-                               </button>
-                               <button 
-                                onClick={() => { setSelectedBooking(booking); setCancelDialogOpen(true); }}
-                                className="text-slate-400 hover:text-red-500 font-bold py-2 transition-colors text-xs flex items-center justify-center gap-2"
-                               >
-                                  Archive Request
-                               </button>
-                            </>
-                          ) : (
-                            <button 
-                              onClick={() => navigate(`/services/${booking.service?.id}`)}
-                              className="bg-slate-900 border border-slate-800 text-white font-black py-3 px-8 rounded-2xl hover:bg-slate-800 transition-all text-sm"
-                            >
-                               Rebook Service
-                            </button>
-                          )}
-                       </div>
+                        {/* Action Hub */}
+                        <div className="w-full lg:w-auto flex flex-col gap-3 lg:border-l lg:border-slate-50 lg:pl-8">
+                           {booking.status === 'REVIEW_PENDING' ? (
+                             <>
+                                <button 
+                                 onClick={(e) => { e.stopPropagation(); handleOpenReview(booking); }}
+                                 className="bg-amber-500 hover:bg-amber-600 text-white font-black py-3 px-8 rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                                >
+                                   <Star className="w-4 h-4" />
+                                   Leave Review
+                                </button>
+                                <button 
+                                 onClick={() => navigate('/messages', { state: { partnerId: booking.service?.provider?.id, partnerName: booking.service?.provider?.fullName } })}
+                                 className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black py-3 px-8 rounded-2xl active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                                >
+                                   <MessageSquare className="w-4 h-4" />
+                                   Chat Expert
+                                </button>
+                             </>
+                           ) : booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' ? (
+                             <>
+                                <button 
+                                 onClick={() => navigate(`/checkout/${booking.id}`)}
+                                 className="bg-primary-600 hover:bg-primary-700 text-white font-black py-3 px-8 rounded-2xl shadow-lg shadow-primary-500/20 active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                                >
+                                   <ArrowUpRight className="w-4 h-4" />
+                                   Complete Project
+                                </button>
+                                <button 
+                                 onClick={() => navigate('/messages', { state: { partnerId: booking.service?.provider?.id, partnerName: booking.service?.provider?.fullName } })}
+                                 className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black py-3 px-8 rounded-2xl active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                                >
+                                   <MessageSquare className="w-4 h-4" />
+                                   Chat Expert
+                                </button>
+                                <button 
+                                 onClick={() => { setSelectedBooking(booking); setCancelDialogOpen(true); }}
+                                 className="text-slate-400 hover:text-red-500 font-bold py-2 transition-colors text-xs flex items-center justify-center gap-2"
+                                >
+                                   Archive Request
+                                </button>
+                             </>
+                           ) : (
+                             <button 
+                               onClick={() => navigate(`/services/${booking.service?.id}`)}
+                               className="bg-slate-900 border border-slate-800 text-white font-black py-3 px-8 rounded-2xl hover:bg-slate-800 transition-all text-sm"
+                             >
+                                Rebook Service
+                             </button>
+                           )}
+                        </div>
                     </div>
 
                     {/* Timeline Tracker */}
@@ -367,9 +459,28 @@ const Bookings = () => {
           </div>
         )}
       </AnimatePresence>
+      {!loading && bookings.length > 0 && (
+        <Pagination 
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          totalElements={totalElements}
+          size={pageSize}
+        />
+      )}
+
+      {selectedBooking && (
+        <ReviewModal
+          isOpen={isReviewModalOpen}
+          onClose={() => setIsReviewModalOpen(false)}
+          booking={selectedBooking}
+          onReviewSuccess={handleReviewSuccess}
+        />
+      )}
     </div>
   );
 };
 
 export default Bookings;
+
 

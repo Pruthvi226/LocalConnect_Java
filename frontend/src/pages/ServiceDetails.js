@@ -31,6 +31,7 @@ const ServiceDetails = () => {
   const [problemImageUrl, setProblemImageUrl] = useState('');
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('OFFLINE'); // Default: Pay After Service
   
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
@@ -68,9 +69,18 @@ const ServiceDetails = () => {
     setBookingLoading(true);
     setBookingSuccess(false);
     try {
-      await bookingService.create(id, new Date(bookingDate), bookingNotes, isEmergency, problemImageUrl);
+      const result = await bookingService.create(id, new Date(bookingDate), bookingNotes, isEmergency, problemImageUrl, paymentMethod);
       setBookingSuccess(true);
-      setTimeout(() => navigate('/bookings'), 2000);
+      
+      const bookingId = result.id;
+      
+      setTimeout(() => {
+        if (paymentMethod === 'ONLINE') {
+          navigate(`/checkout/${bookingId}`);
+        } else {
+          navigate('/my-bookings');
+        }
+      }, 2000);
     } catch (err) {
       setError(err.response?.data?.error || 'Booking failed. Professional might be unavailable.');
     } finally {
@@ -279,10 +289,10 @@ const ServiceDetails = () => {
                          <div className="flex justify-between items-start mb-6">
                             <div className="flex items-center gap-4">
                                <div className="w-12 h-12 bg-slate-100 rounded-2xl overflow-hidden shadow-sm">
-                                  <img src={`https://i.pravatar.cc/100?u=${review.user?.id || 'user'}`} alt="" />
+                                  <img src={`https://i.pravatar.cc/100?u=${review.Customer?.id || 'Customer'}`} alt="" />
                                </div>
                                <div>
-                                  <p className="font-black text-slate-800">{review.user?.fullName || 'ProxiSense User'}</p>
+                                  <p className="font-black text-slate-800">{review.Customer?.fullName || 'ProxiSense Customer'}</p>
                                   <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{dayjs(review.createdAt).format('MMMM D, YYYY')}</p>
                                </div>
                             </div>
@@ -336,9 +346,9 @@ const ServiceDetails = () => {
             </section>
           </div>
 
-          {/* Sticky Booking Column */}
+          {/* Booking Column */}
           <div className="lg:col-span-1">
-             <div className="sticky top-24 space-y-6">
+             <div className="lg:sticky lg:top-24 space-y-6 pb-24 lg:pb-0">
                 
                 {/* Booking Card */}
                 <div className="bg-white rounded-[2.5rem] p-8 lg:p-10 border border-slate-100 shadow-premium relative overflow-hidden">
@@ -360,7 +370,7 @@ const ServiceDetails = () => {
                           className="bg-green-50 text-green-700 p-4 rounded-3xl border border-green-100 mb-6 flex items-center gap-3"
                         >
                            <CheckCircle2 className="w-6 h-6 flex-shrink-0" />
-                           <p className="text-sm font-bold tracking-tight">Project scheduled! Redirecting...</p>
+                           <p className="text-sm font-bold tracking-tight">Booking Confirmed! You will be notified shortly.</p>
                         </motion.div>
                       )}
                       {error && (
@@ -422,6 +432,41 @@ const ServiceDetails = () => {
                       </div>
                    </div>
 
+                   <div className="bg-slate-50 rounded-3xl p-6 mb-8 space-y-4">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Choose Payment Method</label>
+                      <div className="flex flex-col gap-3">
+                         <button 
+                           type="button"
+                           onClick={() => setPaymentMethod('ONLINE')}
+                           className={`p-4 rounded-2xl border-2 flex items-center justify-between transition-all ${paymentMethod === 'ONLINE' ? 'border-primary-500 bg-white ring-4 ring-primary-50' : 'border-slate-100 bg-white/50 opacity-60'}`}
+                         >
+                            <div className="flex items-center gap-3">
+                               <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-black text-[10px]">UPI</div>
+                               <span className="text-sm font-black text-slate-800">Pay Now (UPI/Card)</span>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'ONLINE' ? 'border-primary-500' : 'border-slate-300'}`}>
+                               {paymentMethod === 'ONLINE' && <div className="w-2.5 h-2.5 bg-primary-500 rounded-full" />}
+                            </div>
+                         </button>
+
+                         <button 
+                           type="button"
+                           onClick={() => setPaymentMethod('OFFLINE')}
+                           className={`p-4 rounded-2xl border-2 flex items-center justify-between transition-all ${paymentMethod === 'OFFLINE' ? 'border-orange-500 bg-white ring-4 ring-orange-50' : 'border-slate-100 bg-white/50 opacity-60'}`}
+                         >
+                            <div className="flex items-center gap-3">
+                               <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                               </div>
+                               <span className="text-sm font-black text-slate-800">Pay After Service (Cash/UPI)</span>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'OFFLINE' ? 'border-orange-500' : 'border-slate-300'}`}>
+                               {paymentMethod === 'OFFLINE' && <div className="w-2.5 h-2.5 bg-orange-500 rounded-full" />}
+                            </div>
+                         </button>
+                      </div>
+                   </div>
+
                    <div className="bg-slate-50 rounded-3xl p-6 mb-8 space-y-3">
                       <div className="flex justify-between text-sm font-bold text-slate-500">
                          <span>Base Price</span>
@@ -441,9 +486,9 @@ const ServiceDetails = () => {
                    <button 
                     onClick={handleBooking}
                     disabled={bookingLoading || !service.isAvailable}
-                    className="w-full bg-primary-600 hover:bg-primary-700 text-white font-black py-5 rounded-3xl shadow-xl shadow-primary-500/20 active:scale-95 transition-all text-lg flex items-center justify-center gap-3 disabled:opacity-50"
+                    className="hidden lg:flex w-full bg-primary-600 hover:bg-primary-700 text-white font-black py-5 rounded-3xl shadow-xl shadow-primary-500/20 active:scale-95 transition-all text-lg items-center justify-center gap-3 disabled:opacity-50"
                    >
-                     {bookingLoading ? 'Processing...' : (service.isAvailable ? 'Reserve Now' : 'Join Waitlist')}
+                     {bookingLoading ? 'Processing...' : (service.isAvailable ? 'Book Now' : 'Join Waitlist')}
                      <ChevronRight className="w-5 h-5" />
                    </button>
                    
@@ -468,8 +513,25 @@ const ServiceDetails = () => {
 
         </div>
       </div>
+
+      {/* Mobile Fixed Booking Bar */}
+      <div className="fixed bottom-0 left-0 right-0 w-full bg-white px-5 py-4 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] z-[100] lg:hidden flex justify-between items-center border-t border-slate-100">
+         <div>
+            <p className="text-[10px] font-black uppercase text-slate-400 leading-none mb-1">Total</p>
+            <p className="font-black text-slate-900 text-xl leading-none mb-1">₹{service.price + (service.platformFee || 50)}</p>
+            <p className="text-[10px] font-bold text-primary-600 leading-none">{paymentMethod === 'ONLINE' ? 'Pay Now' : 'Pay After Service'}</p>
+         </div>
+         <button 
+          onClick={handleBooking}
+          disabled={bookingLoading || !service.isAvailable}
+          className="bg-primary-600 hover:bg-primary-700 text-white font-black py-3.5 px-8 rounded-2xl shadow-xl shadow-primary-500/20 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+         >
+           {bookingLoading ? 'Processing...' : (service.isAvailable ? 'Book Now' : 'Waitlist')}
+         </button>
+      </div>
     </div>
   );
 };
 
 export default ServiceDetails;
+

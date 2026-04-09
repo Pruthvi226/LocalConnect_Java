@@ -3,12 +3,16 @@ package com.nearnest.controller;
 import com.nearnest.dto.BookingDto;
 import com.nearnest.dto.ProviderSummaryDto;
 import com.nearnest.dto.ServiceDto;
+import com.nearnest.dto.TransactionDto;
 import com.nearnest.model.Booking.BookingStatus;
 import com.nearnest.service.BookingService;
 import com.nearnest.service.ProviderDashboardService;
 import com.nearnest.service.ServiceService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.web.PageableDefault;
 
 import java.util.List;
 
@@ -38,14 +42,21 @@ public class ProviderController {
     }
 
     @GetMapping("/bookings")
-    public ResponseEntity<List<BookingDto>> getProviderBookings() {
-        return ResponseEntity.ok(dashboardService.getProviderBookings());
+    public ResponseEntity<Page<BookingDto>> getProviderBookings(@PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(dashboardService.getProviderBookings(pageable));
     }
 
     @PutMapping("/bookings/{id}")
     public ResponseEntity<BookingDto> updateBookingStatus(@PathVariable(name = "id") Long id,
                                                    @RequestParam(name = "status", required = false) BookingStatus status,
-                                                   @RequestParam(name = "notes", required = false) String notes) {
-        return ResponseEntity.ok(bookingService.updateBooking(id, status, notes));
+                                                   @RequestParam(name = "notes", required = false) String notes,
+                                                   @RequestParam(name = "beforeImageUrl", required = false) String beforeImageUrl,
+                                                   @RequestParam(name = "afterImageUrl", required = false) String afterImageUrl) {
+        return ResponseEntity.ok(bookingService.updateBooking(java.util.Objects.requireNonNull(id), status, notes, beforeImageUrl, afterImageUrl, null, null, null));
+    }
+
+    @GetMapping("/transactions")
+    public ResponseEntity<Page<TransactionDto>> getProviderTransactions(@PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(dashboardService.getProviderTransactions(pageable));
     }
 }

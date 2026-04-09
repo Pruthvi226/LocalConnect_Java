@@ -1,6 +1,7 @@
 package com.nearnest.service;
 
 import com.nearnest.dto.ServiceDto;
+import com.nearnest.dto.ServiceRequest;
 import com.nearnest.model.Service;
 import com.nearnest.model.User;
 import com.nearnest.repository.ServiceRepository;
@@ -9,10 +10,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.lang.NonNull;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -24,12 +29,13 @@ public class ServiceService {
     @Autowired
     AuthService authService;
 
-    public Page<ServiceDto> getAllServices(Pageable pageable) {
+    @Cacheable(value = "services", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
+    public Page<ServiceDto> getAllServices(@NonNull Pageable pageable) {
         return serviceRepository.findAll(pageable).map(this::convertToDto);
     }
 
     public Page<ServiceDto> searchServices(String category, String location, Double minPrice,
-                                        Double maxPrice, Double minRating, Boolean isAvailableNow, Pageable pageable) {
+                                        Double maxPrice, Double minRating, Boolean isAvailableNow, @NonNull Pageable pageable) {
         if (pageable.getSort().isUnsorted()) {
             pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), 
                     org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "provider.trustScore"));
@@ -47,7 +53,7 @@ public class ServiceService {
                                                      Double userLat,
                                                      Double userLng,
                                                      Double maxDistanceKm,
-                                                     Pageable pageable) {
+                                                     @NonNull Pageable pageable) {
         // Fallback to regular search when location is not provided
         if (userLat == null || userLng == null) {
             return searchServices(category, location, minPrice, maxPrice, minRating, isAvailableNow, pageable);
@@ -71,7 +77,7 @@ public class ServiceService {
         int end = Math.min((start + pageable.getPageSize()), results.size());
         
         List<ServiceDto> pagedList = results.subList(Math.max(0, Math.min(start, results.size())), end);
-        return new PageImpl<>(pagedList, pageable, results.size());
+        return new PageImpl<>(Objects.requireNonNull(pagedList), pageable, results.size());
     }
 
     private double haversineDistanceKm(double lat1, double lon1, double lat2, double lon2) {
@@ -86,7 +92,7 @@ public class ServiceService {
     }
 
     // Phase 2: Smart Matching Recommendations
-    public Page<ServiceDto> getRecommendations(Double userLat, Double userLng, Pageable pageable) {
+    public Page<ServiceDto> getRecommendations(Double userLat, Double userLng, @NonNull Pageable pageable) {
         List<Service> base = serviceRepository.findAll();
         
         List<ServiceDto> results = base.stream()
@@ -104,7 +110,7 @@ public class ServiceService {
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), results.size());
         List<ServiceDto> pagedList = results.subList(Math.max(0, Math.min(start, results.size())), end);
-        return new PageImpl<>(pagedList, pageable, results.size());
+        return new PageImpl<>(Objects.requireNonNull(pagedList), pageable, results.size());
     }
 
     private double calculateMatchScore(ServiceDto dto) {
@@ -116,7 +122,7 @@ public class ServiceService {
         return (trustNorm * 0.4) + (ratingNorm * 0.4) + instantBonus - distPenalty;
     }
 
-    public Page<ServiceDto> searchByQuery(String query, Pageable pageable) {
+    public Page<ServiceDto> searchByQuery(String query, @NonNull Pageable pageable) {
         return serviceRepository.searchByQuery(query, pageable).map(this::convertToDto);
     }
 
@@ -124,12 +130,14 @@ public class ServiceService {
         return serviceRepository.findAllDistinctCategories();
     }
 
-    public Optional<ServiceDto> getServiceById(Long id) {
+    @Cacheable(value = "serviceDetails", key = "#id")
+    public Optional<ServiceDto> getServiceById(@NonNull Long id) {
         return serviceRepository.findById(id).map(this::convertToDto);
     }
 
     @Transactional
-    public ServiceDto createService(Service service) {
+    @CacheEvict(value = {"services", "serviceDetails"}, allEntries = true)
+    public ServiceDto createService(@NonNull ServiceRequest request) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
@@ -137,13 +145,28 @@ public class ServiceService {
         if (currentUser.getRole() != User.Role.PROVIDER && currentUser.getRole() != User.Role.ADMIN) {
             throw new RuntimeException("Only providers and admins can create services");
         }
+        
+        Service service = new Service();
+        service.setTitle(request.getTitle());
+        service.setDescription(request.getDescription());
+        service.setCategory(request.getCategory());
+        service.setPrice(request.getPrice());
+        service.setLocation(request.getLocation());
+        service.setImageUrl(request.getImageUrl());
+        service.setIsAvailable(request.getIsAvailable() != null ? request.getIsAvailable() : true);
+        service.setIsAvailableNow(request.getIsAvailableNow() != null ? request.getIsAvailableNow() : true);
+        service.setLatitude(request.getLatitude());
+        service.setLongitude(request.getLongitude());
+        service.setPlatformFee(50.0); // Default platform fee
+        
         service.setProvider(currentUser);
         Service saved = serviceRepository.save(service);
         return convertToDto(saved);
     }
 
     @Transactional
-    public ServiceDto updateService(Long id, Service serviceDetails) {
+    @CacheEvict(value = {"services", "serviceDetails"}, allEntries = true)
+    public ServiceDto updateService(@NonNull Long id, @NonNull ServiceRequest request) {
         Service service = serviceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Service not found"));
         
@@ -157,24 +180,23 @@ public class ServiceService {
             throw new RuntimeException("You don't have permission to update this service");
         }
 
-        if (serviceDetails.getTitle() != null) service.setTitle(serviceDetails.getTitle());
-        if (serviceDetails.getDescription() != null) service.setDescription(serviceDetails.getDescription());
-        if (serviceDetails.getCategory() != null) service.setCategory(serviceDetails.getCategory());
-        if (serviceDetails.getPrice() != null) service.setPrice(serviceDetails.getPrice());
-        if (serviceDetails.getLocation() != null) service.setLocation(serviceDetails.getLocation());
-        if (serviceDetails.getLatitude() != null) service.setLatitude(serviceDetails.getLatitude());
-        if (serviceDetails.getLongitude() != null) service.setLongitude(serviceDetails.getLongitude());
-        if (serviceDetails.getImageUrl() != null) service.setImageUrl(serviceDetails.getImageUrl());
-        if (serviceDetails.getIsAvailable() != null) service.setIsAvailable(serviceDetails.getIsAvailable());
-        if (serviceDetails.getIsAvailableNow() != null) service.setIsAvailableNow(serviceDetails.getIsAvailableNow());
-        if (serviceDetails.getPlatformFee() != null) service.setPlatformFee(serviceDetails.getPlatformFee());
+        if (request.getTitle() != null) service.setTitle(request.getTitle());
+        if (request.getDescription() != null) service.setDescription(request.getDescription());
+        if (request.getCategory() != null) service.setCategory(request.getCategory());
+        if (request.getPrice() != null) service.setPrice(request.getPrice());
+        if (request.getLocation() != null) service.setLocation(request.getLocation());
+        if (request.getImageUrl() != null) service.setImageUrl(request.getImageUrl());
+        if (request.getIsAvailable() != null) service.setIsAvailable(request.getIsAvailable());
+        if (request.getIsAvailableNow() != null) service.setIsAvailableNow(request.getIsAvailableNow());
+        if (request.getLatitude() != null) service.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) service.setLongitude(request.getLongitude());
 
-        Service updated = serviceRepository.save(service);
+        Service updated = serviceRepository.save(java.util.Objects.requireNonNull(service));
         return convertToDto(updated);
     }
 
     @Transactional
-    public void deleteService(Long id) {
+    public void deleteService(@NonNull Long id) {
         Service service = serviceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Service not found"));
 
@@ -189,10 +211,10 @@ public class ServiceService {
             throw new RuntimeException("You don't have permission to delete this service");
         }
 
-        serviceRepository.delete(service);
+        serviceRepository.delete(Objects.requireNonNull(service));
     }
 
-    public List<ServiceDto> getServicesByProvider(Long providerId) {
+    public List<ServiceDto> getServicesByProvider(@NonNull Long providerId) {
         return serviceRepository.findByProviderId(providerId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());

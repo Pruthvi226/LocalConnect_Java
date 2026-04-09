@@ -154,9 +154,10 @@ const ServiceCard = ({ service }) => {
                 <MessageSquare className="w-5 h-5" />
               </button>
               <button 
+                onClick={(e) => { e.stopPropagation(); navigate(`/services/${service.id}`); }}
                 className="bg-primary-600 text-white font-bold py-2.5 px-5 rounded-xl text-sm flex items-center gap-2 hover:bg-primary-700 shadow-lg shadow-primary-500/20 active:scale-95 transition-all"
               >
-                Book
+                Book Now
                 <ArrowRight className="w-4 h-4" />
               </button>
            </div>
@@ -167,3 +168,4 @@ const ServiceCard = ({ service }) => {
 };
 
 export default ServiceCard;
+

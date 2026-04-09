@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.Objects;
 
 @CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"}, allowCredentials = "true")
 @RestController
@@ -23,11 +24,11 @@ public class UserController {
 
     @PutMapping("/me")
     public ResponseEntity<UserProfileDto> updateCurrentUser(@Valid @RequestBody UserUpdateDto updateRequest) {
-        return ResponseEntity.ok(userService.updateUserProfile(updateRequest));
+        return ResponseEntity.ok(userService.updateUserProfile(Objects.requireNonNull(updateRequest)));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<UserProfileDto> getUserById(@PathVariable(name = "id") Long id) {
-        return ResponseEntity.ok(userService.getUserProfileById(id));
+        return ResponseEntity.ok(userService.getUserProfileById(Objects.requireNonNull(id)));
     }
 }

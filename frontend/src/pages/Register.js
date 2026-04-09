@@ -17,13 +17,13 @@ import { useAuth } from '../context/AuthContext';
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    username: '',
+    Username: '',
     email: '',
     password: '',
     fullName: '',
     phone: '',
     address: '',
-    role: 'USER',
+    role: 'Customer',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,10 +49,10 @@ const Register = () => {
   const validateForm = () => {
     const errors = {};
 
-    if (!formData.username.trim()) {
-      errors.username = 'Username is required';
-    } else if (formData.username.length < 3) {
-      errors.username = 'Username must be at least 3 characters';
+    if (!formData.Username.trim()) {
+      errors.Username = 'Username is required';
+    } else if (formData.Username.length < 3) {
+      errors.Username = 'Username must be at least 3 characters';
     }
 
     if (!formData.email.trim()) {
@@ -116,13 +116,13 @@ const Register = () => {
           <TextField
             fullWidth
             label="Username"
-            name="username"
-            value={formData.username}
+            name="Username"
+            value={formData.Username}
             onChange={handleChange}
             required
             margin="normal"
-            error={!!validationErrors.username}
-            helperText={validationErrors.username}
+            error={!!validationErrors.Username}
+            helperText={validationErrors.Username}
           />
           <TextField
             fullWidth
@@ -187,8 +187,8 @@ const Register = () => {
               onChange={handleChange}
               label="Role"
             >
-              <MenuItem value="USER">User</MenuItem>
-              <MenuItem value="PROVIDER">Service Provider</MenuItem>
+              <MenuItem value="Customer">Customer</MenuItem>
+              <MenuItem value="PROVIDER">Provider</MenuItem>
             </Select>
           </FormControl>
           <Button
@@ -210,3 +210,4 @@ const Register = () => {
 };
 
 export default Register;
+

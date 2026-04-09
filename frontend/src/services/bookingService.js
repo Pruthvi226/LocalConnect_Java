@@ -1,8 +1,8 @@
 import api from './api';
 
 export const bookingService = {
-  getAll: async () => {
-    const response = await api.get('/bookings');
+  getAll: async (params = {}) => {
+    const response = await api.get('/bookings', { params });
     return response.data;
   },
 
@@ -11,13 +11,27 @@ export const bookingService = {
     return response.data;
   },
 
-  create: async (serviceId, bookingDate, notes, isEmergency, problemImageUrl) => {
+  getUserBookings: async (page = 0, size = 10) => {
+    const response = await api.get(`/bookings/user?page=${page}&size=${size}&sort=createdAt,desc`);
+    return response.data;
+  },
+
+  create: async (serviceId, bookingDate, notes, isEmergency, problemImageUrl, paymentMethod) => {
+    // Format date for Spring Boot LocalDateTime: YYYY-MM-DDTHH:mm:ss
+    let formattedDate = bookingDate;
+    if (bookingDate instanceof Date) {
+      formattedDate = bookingDate.toISOString().split('.')[0];
+    } else if (typeof bookingDate === 'string' && bookingDate.includes('Z')) {
+      formattedDate = bookingDate.split('.')[0];
+    }
+    
     const payload = {
       serviceId,
-      bookingDate: bookingDate.toISOString().split('.')[0], // Removes .SSSZ for LocalDateTime
+      bookingDate: formattedDate,
       notes: notes || '',
       isEmergency: isEmergency || false,
       problemImageUrl: problemImageUrl || '',
+      paymentMethod: paymentMethod || 'ONLINE'
     };
     const response = await api.post('/bookings/create', payload);
     return response.data;
@@ -37,4 +51,17 @@ export const bookingService = {
     const response = await api.delete(`/bookings/${id}`);
     return response.data;
   },
+
+  cancelPost: async (bookingId) => {
+    const response = await api.post('/bookings/cancel', { bookingId });
+    return response.data;
+  },
+
+  getInvoice: async (id) => {
+    const response = await api.get(`/bookings/${id}/invoice`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
 };
+

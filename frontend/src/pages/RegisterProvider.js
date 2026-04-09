@@ -30,12 +30,31 @@ const RegisterProvider = () => {
     setIsSuccess(false);
 
     if (!formData.username || !formData.email || !formData.password || !formData.fullName || !formData.phone || !formData.address) {
-      setError('Essential provider credentials are missing in the application matrix.');
+      setError('Please fill in all required fields.');
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Security key must be at least 6 characters for optimal protection.');
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
+    // Password validation: min 8 chars, at least one number (matching backend)
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+    if (!/\d/.test(formData.password)) {
+      setError('Password must contain at least one number.');
+      return;
+    }
+
+    // Phone validation (simple check for digits)
+    const phoneRegex = /^\+?[0-9]{10,15}$/;
+    if (!phoneRegex.test(formData.phone.replace(/[\s()-]/g, ''))) {
+      setError('Please enter a valid phone number.');
       return;
     }
 
@@ -112,7 +131,7 @@ const RegisterProvider = () => {
                   <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 </div>
                 <h3 className="font-black text-lg mb-1">Registration Successful!</h3>
-                <p className="text-sm font-bold text-emerald-600/70">Redirecting to secure login portal...</p>
+                <p className="text-sm font-bold text-emerald-600/70">Redirecting to login...</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -120,7 +139,7 @@ const RegisterProvider = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-1">
-                <label className={labelClasses}>Business / Full Name</label>
+                <label className={labelClasses}>Business Name</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                     <Briefcase className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
@@ -138,7 +157,7 @@ const RegisterProvider = () => {
               </div>
 
               <div className="space-y-1">
-                <label className={labelClasses}>Provider ID / Username</label>
+                <label className={labelClasses}>Username</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                     <CheckCircle2 className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
@@ -158,7 +177,7 @@ const RegisterProvider = () => {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-1">
-                <label className={labelClasses}>Professional Email</label>
+                <label className={labelClasses}>Email Address</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                     <Mail className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
@@ -176,7 +195,7 @@ const RegisterProvider = () => {
               </div>
 
               <div className="space-y-1">
-                <label className={labelClasses}>Security Key / Password</label>
+                <label className={labelClasses}>Password</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
@@ -203,7 +222,7 @@ const RegisterProvider = () => {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-1">
-                <label className={labelClasses}>Professional Contact</label>
+                <label className={labelClasses}>Phone Number</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                     <Phone className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
@@ -221,7 +240,7 @@ const RegisterProvider = () => {
               </div>
 
               <div className="space-y-1">
-                <label className={labelClasses}>Business Address / Base</label>
+                <label className={labelClasses}>Business Address</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                     <MapPin className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
@@ -249,7 +268,7 @@ const RegisterProvider = () => {
                   <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
                 ) : (
                   <>
-                    Open Provider Application
+                    Create Account
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
@@ -259,14 +278,14 @@ const RegisterProvider = () => {
 
           <div className="mt-10 pt-8 border-t border-slate-50 text-center">
             <p className="text-slate-400 font-bold text-sm">
-              Already verified?{' '}
+              Already have an account?{' '}
               <Link to="/login/provider" className="text-indigo-600 hover:underline">Sign In</Link>
             </p>
           </div>
         </div>
         
         <p className="text-center mt-8 text-slate-400 text-xs font-medium">
-          Provider access is subject to credential verification.
+          Registration is subject to account verification.
         </p>
       </motion.div>
     </div>
@@ -274,3 +293,4 @@ const RegisterProvider = () => {
 };
 
 export default RegisterProvider;
+

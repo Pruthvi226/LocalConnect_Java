@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { providerService } from '../services/providerService';
-import { User, Mail, Phone, MapPin, Briefcase, CreditCard, ShieldCheck } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Briefcase, CreditCard, ShieldCheck, Star } from 'lucide-react';
 import ThreeDBackground from '../components/ThreeDBackground';
 
 const ProviderProfile = () => {
@@ -49,16 +49,22 @@ const ProviderProfile = () => {
           <div className="flex flex-col md:flex-row gap-6">
             <div className="flex-shrink-0">
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-secondary-600 to-primary-600 flex items-center justify-center text-white text-3xl font-bold">
-                {user.fullName?.charAt(0) || user.username?.charAt(0) || 'P'}
+              {user.fullName?.charAt(0) || user.username?.charAt(0) || 'P'}
               </div>
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-semibold mb-1 flex items-center gap-3">
-                 {user.fullName || user.username}
+               {user.fullName || user.username}
+                 {user.averageRating != null && (
+                   <span className="bg-amber-100 text-amber-700 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1 border border-amber-200">
+                     <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                     {user.averageRating.toFixed(1)} ({user.totalReviews || 0} Reviews)
+                   </span>
+                 )}
                  {user.trustScore != null && (
                     <span className="bg-green-100 text-green-700 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1 border border-green-200">
                        <ShieldCheck className="w-3.5 h-3.5" />
-                       Trust Score: {user.trustScore}
+                        Trust Score: {user.trustScore}
                     </span>
                  )}
               </h2>
@@ -124,3 +130,4 @@ const ProviderProfile = () => {
 };
 
 export default ProviderProfile;
+

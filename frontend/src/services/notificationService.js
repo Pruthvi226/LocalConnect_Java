@@ -24,3 +24,4 @@ export const notificationService = {
     await api.put('/notifications/read-all');
   },
 };
+

@@ -68,6 +68,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/services/**").permitAll()
                 .requestMatchers("/api/ai/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
+                // Serve uploaded files publicly (images, documents)
+                .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/api/payments/stripe/webhook", "/api/payments/config").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()

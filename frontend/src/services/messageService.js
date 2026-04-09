@@ -6,8 +6,13 @@ export const messageService = {
     return response.data;
   },
 
-  getConversation: async (userId) => {
-    const response = await api.get(`/messages/conversation/${userId}`);
+  getConversation: async (UserId) => {
+    const response = await api.get(`/messages/conversation/${UserId}`);
+    return response.data;
+  },
+
+  getByBooking: async (bookingId) => {
+    const response = await api.get(`/messages/booking/${bookingId}`);
     return response.data;
   },
 
@@ -24,3 +29,4 @@ export const messageService = {
     await api.put('/messages/read-all');
   },
 };
+

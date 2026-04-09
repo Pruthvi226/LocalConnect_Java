@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { User, Mail, Phone, MapPin, Heart, BookOpen, MessageCircle } from 'lucide-react';
 
-const CustomerProfile = () => {
+const UserProfile = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -90,4 +90,5 @@ const CustomerProfile = () => {
   );
 };
 
-export default CustomerProfile;
+export default UserProfile;
+

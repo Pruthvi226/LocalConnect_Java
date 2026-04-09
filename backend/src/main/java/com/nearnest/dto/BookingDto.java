@@ -27,6 +27,10 @@ public class BookingDto {
     private Double providerLng;
     private Integer etaMinutes;
     private LocalDateTime createdAt;
+    private Long paymentId;
+    private String paymentStatus;
+    private String paymentMethod;
+    private Double paymentAmount;
 
     // Nested service object for frontend compatibility
     private ServiceSummary service;
@@ -58,6 +62,13 @@ public class BookingDto {
         dto.setProviderLng(b.getProviderLng());
         dto.setEtaMinutes(b.getEtaMinutes());
         dto.setCreatedAt(b.getCreatedAt());
+        
+        if (b.getPayment() != null) {
+            dto.setPaymentId(b.getPayment().getId());
+            dto.setPaymentStatus(b.getPayment().getStatus().name());
+            dto.setPaymentMethod(b.getPayment().getPaymentMethod());
+            dto.setPaymentAmount(b.getPayment().getAmount().doubleValue());
+        }
 
         // Populate nested service summary
         ServiceSummary svc = new ServiceSummary();
@@ -169,6 +180,14 @@ public class BookingDto {
     public void setEtaMinutes(Integer etaMinutes) { this.etaMinutes = etaMinutes; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Long getPaymentId() { return paymentId; }
+    public void setPaymentId(Long paymentId) { this.paymentId = paymentId; }
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public Double getPaymentAmount() { return paymentAmount; }
+    public void setPaymentAmount(Double paymentAmount) { this.paymentAmount = paymentAmount; }
     public ServiceSummary getService() { return service; }
     public void setService(ServiceSummary service) { this.service = service; }
 }

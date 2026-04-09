@@ -8,6 +8,7 @@ public class ProviderSummaryDto {
     private Long confirmedBookings;
     private Long completedBookings;
     private BigDecimal totalRevenue;
+    private Long pendingPayments;
     private Long unreadNotifications;
     private Long unreadMessages;
     
@@ -28,6 +29,8 @@ public class ProviderSummaryDto {
     public void setCompletedBookings(Long completedBookings) { this.completedBookings = completedBookings; }
     public BigDecimal getTotalRevenue() { return totalRevenue; }
     public void setTotalRevenue(BigDecimal totalRevenue) { this.totalRevenue = totalRevenue; }
+    public Long getPendingPayments() { return pendingPayments; }
+    public void setPendingPayments(Long pendingPayments) { this.pendingPayments = pendingPayments; }
     public Long getUnreadNotifications() { return unreadNotifications; }
     public void setUnreadNotifications(Long unreadNotifications) { this.unreadNotifications = unreadNotifications; }
     public Long getUnreadMessages() { return unreadMessages; }

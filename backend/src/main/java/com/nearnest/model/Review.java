@@ -20,14 +20,25 @@ public class Review {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_id", nullable = false, unique = true)
+    private Booking booking;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "service_id", nullable = false)
+    @JoinColumn(name = "provider_id", nullable = false)
+    private User provider;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "service_id")
     private Service service;
 
     @NotNull
     @Min(1)
     @Max(5)
     private Integer rating;
+
+    @Column(name = "rating_tags", length = 500)
+    private String ratingTags;
 
     @Column(length = 1000)
     private String comment;
@@ -66,6 +77,22 @@ public class Review {
         this.user = user;
     }
 
+    public Booking getBooking() {
+        return booking;
+    }
+
+    public void setBooking(Booking booking) {
+        this.booking = booking;
+    }
+
+    public User getProvider() {
+        return provider;
+    }
+
+    public void setProvider(User provider) {
+        this.provider = provider;
+    }
+
     public Service getService() {
         return service;
     }
@@ -80,6 +107,14 @@ public class Review {
 
     public void setRating(Integer rating) {
         this.rating = rating;
+    }
+
+    public String getRatingTags() {
+        return ratingTags;
+    }
+
+    public void setRatingTags(String ratingTags) {
+        this.ratingTags = ratingTags;
     }
 
     public String getComment() {

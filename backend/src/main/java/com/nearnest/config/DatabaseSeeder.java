@@ -20,19 +20,22 @@ public class DatabaseSeeder {
                                  ServiceRepository serviceRepository,
                                  PasswordEncoder passwordEncoder) {
         return args -> {
-            System.out.println("Starting Database Seeding...");
+            System.out.println("Checking database seed status...");
 
-            // 0. Clear existing services to ensure clean demo data
-            serviceRepository.deleteAll();
-            System.out.println("Cleared existing services.");
+            // ─── IDEMPOTENT GUARD ─────────────────────────────────────────────────────
+            // CRITICAL FIX: Only seed when DB is empty. Previous code called
+            // serviceRepository.deleteAll() on every restart, wiping all data.
+            if (serviceRepository.count() > 0) {
+                System.out.println("Database already seeded. Skipping. (services=" + serviceRepository.count() + ")");
+                return;
+            }
+            System.out.println("Empty database detected. Starting initial seed...");
 
-            // --- CATEGORIES ---
             String[] categories = {
                 "Plumbing", "Electrical", "Tutoring", "Cleaning", 
                 "AC Repair", "Pest Control", "Gardening", "Moving"
             };
 
-            // --- LOCATIONS ---
             String[] locations = {
                 "Mumbai, Andheri", "Mumbai, Bandra", "Bangalore, Indiranagar", 
                 "Bangalore, Koramangala", "Delhi, Saket", "Delhi, Rohini",
@@ -52,84 +55,96 @@ public class DatabaseSeeder {
                 "Award-winning professional offering premium services. Passionate about quality and clear communication with every client."
             };
 
-            Random random = new Random();
+            // Fixed seed → reproducible, consistent demo data every time
+            Random random = new Random(42);
 
             for (int i = 1; i <= 15; i++) {
                 String username = "vendor" + i;
-                
-                // 1. Get or Create Provider
-                User provider = userRepository.findByUsername(username).orElse(new User());
-                
-                if (provider.getId() == null) {
-                    provider.setUsername(username);
-                    provider.setEmail(username + "@proxisense.com");
-                    provider.setPassword(passwordEncoder.encode("password123"));
-                    provider.setRole(User.Role.PROVIDER);
-                }
-                
                 String category = categories[random.nextInt(categories.length)];
                 String location = locations[random.nextInt(locations.length)];
-                
-                // Overwrite with realistic demo name
-                provider.setFullName(getProviderName(i));
-                provider.setPhone("+91 98765" + (10000 + i));
-                provider.setAddress(location + ", Street " + i);
-                provider.setBio(bios[i % bios.length]);
-                
-                userRepository.save(provider);
+                String fullName = getProviderName(i);
 
-                // 2. Create 3-5 Services for each Provider
-                int numServices = 2 + random.nextInt(3);
-                for (int j = 1; j <= numServices; j++) {
-                    Service service = new Service();
-                    service.setTitle(getServiceTitle(category, j));
-                    service.setCategory(category);
-                    service.setDescription("Expert " + category + " services by " + provider.getFullName() + ". We provide professional tools, certified workers, and 24/7 support.");
-                    service.setPrice(BigDecimal.valueOf(500 + random.nextInt(2500)));
-                    service.setLocation(location);
-                    
-                    // High-quality placeholder images based on category
-                    service.setImageUrl(getCategoryImage(category, j));
-                    
-                    service.setAverageRating(3.5 + (random.nextDouble() * 1.5));
-                    service.setTotalReviews(10 + random.nextInt(200));
-                    service.setIsAvailable(random.nextDouble() > 0.2); // 80% available
-                    
-                    // Assign Coordinates with Jitter
-                    int locIdx = -1;
-                    for (int k = 0; k < locations.length; k++) {
-                        if (locations[k].equals(location)) { locIdx = k; break; }
-                    }
-                    if (locIdx != -1) {
-                        double latBase = coords[locIdx][0];
-                        double lngBase = coords[locIdx][1];
-                        // Add ~100m - 500m random jitter (0.001 deg approx 111m)
-                        service.setLatitude(latBase + (random.nextDouble() - 0.5) * 0.01);
-                        service.setLongitude(lngBase + (random.nextDouble() - 0.5) * 0.01);
-                    }
+                // Only create if not already present
+                if (userRepository.findByUsername(username).isEmpty()) {
+                    User provider = new User();
+                    provider.setUsername(username);
+                    provider.setEmail(username + "@proxisense.com");
+                    provider.setPassword(passwordEncoder.encode("Test@1234"));
+                    provider.setRole(User.Role.PROVIDER);
+                    provider.setFullName(fullName);
+                    provider.setPhone("+91 98765" + String.format("%05d", 10000 + i));
+                    provider.setAddress(location + ", Street " + i);
+                    provider.setBio(bios[i % bios.length]);
+                    provider = userRepository.save(provider);
 
-                    service.setProvider(provider);
-                    
-                    serviceRepository.save(service);
-                    System.out.println("Saved service: " + service.getTitle() + " | Image: " + service.getImageUrl());
+                    int numServices = 2 + random.nextInt(3);
+                    for (int j = 1; j <= numServices; j++) {
+                        Service service = new Service();
+                        service.setTitle(getServiceTitle(category, j));
+                        service.setCategory(category);
+                        service.setDescription("Expert " + category + " services by " + provider.getFullName()
+                                + ". Professional tools, certified workers, and 24/7 support.");
+                        service.setPrice(BigDecimal.valueOf(500 + random.nextInt(2500)));
+                        service.setLocation(location);
+                        service.setImageUrl(getCategoryImage(category, j));
+                        service.setAverageRating(3.5 + (random.nextDouble() * 1.5));
+                        service.setTotalReviews(10 + random.nextInt(200));
+                        service.setIsAvailable(random.nextDouble() > 0.2);
+
+                        int locIdx = -1;
+                        for (int k = 0; k < locations.length; k++) {
+                            if (locations[k].equals(location)) { locIdx = k; break; }
+                        }
+                        if (locIdx != -1) {
+                            service.setLatitude(coords[locIdx][0] + (random.nextDouble() - 0.5) * 0.01);
+                            service.setLongitude(coords[locIdx][1] + (random.nextDouble() - 0.5) * 0.01);
+                        }
+                        service.setProvider(provider);
+                        serviceRepository.save(service);
+                    }
                 }
             }
 
-            // 3. Create a demo customer account for login testing
+            // ─── Demo Customer ────────────────────────────────────────────────────────
             if (userRepository.findByUsername("customer1").isEmpty()) {
                 User customer = new User();
                 customer.setUsername("customer1");
                 customer.setEmail("customer@proxisense.com");
-                customer.setPassword(passwordEncoder.encode("password123"));
-                customer.setFullName("Demo Customer");
+                customer.setPassword(passwordEncoder.encode("Test@1234"));
+                customer.setFullName("Verified Customer");
                 customer.setPhone("+91 99999 00001");
                 customer.setAddress("Mumbai, Andheri");
                 customer.setRole(User.Role.USER);
                 userRepository.save(customer);
-                System.out.println("Created demo customer: customer1 / password123");
+                System.out.println("Created customer: customer1 / Test@1234");
             }
 
-            System.out.println("Database Seeding Completed successfully!");
+            // ─── E2E Test Customer ────────────────────────────────────────────────────
+            if (userRepository.findByUsername("user1").isEmpty()) {
+                User user1 = new User();
+                user1.setUsername("user1");
+                user1.setEmail("user1@proxisense.com");
+                user1.setPassword(passwordEncoder.encode("Test@1234"));
+                user1.setFullName("Audit Customer");
+                user1.setRole(User.Role.USER);
+                userRepository.save(user1);
+                System.out.println("Created test customer: user1 / Test@1234");
+            }
+
+            // ─── Admin Account (was previously missing) ───────────────────────────────
+            if (userRepository.findByUsername("admin").isEmpty()) {
+                User admin = new User();
+                admin.setUsername("admin");
+                admin.setEmail("admin@proxisense.com");
+                admin.setPassword(passwordEncoder.encode("Admin@1234"));
+                admin.setFullName("System Administrator");
+                admin.setPhone("+91 00000 00000");
+                admin.setRole(User.Role.ADMIN);
+                userRepository.save(admin);
+                System.out.println("Created admin account: admin / Admin@1234");
+            }
+
+            System.out.println("Database seeding completed successfully.");
         };
     }
 
@@ -151,7 +166,6 @@ public class DatabaseSeeder {
         };
         String[] electrical = {
             "https://images.unsplash.com/photo-1621905251189-08b45d6a269e",
-            "https://images.unsplash.com/photo-1558444479-08b45d6a269e",
             "https://images.unsplash.com/photo-1544724569-5f546fd6f2b5"
         };
         String[] tutoring = {
@@ -182,49 +196,56 @@ public class DatabaseSeeder {
             "https://images.unsplash.com/photo-1520509414578-d9cbf09933a1",
             "https://images.unsplash.com/photo-1600518464441-9154a4dea21b"
         };
-        
+
         String[] pool;
-        switch(category) {
-            case "Plumbing": pool = plumbing; break;
-            case "Electrical": pool = electrical; break;
-            case "Tutoring": pool = tutoring; break;
-            case "Cleaning": pool = cleaning; break;
-            case "AC Repair": pool = ac; break;
-            case "Pest Control": pool = pest; break;
-            case "Gardening": pool = garden; break;
-            case "Moving": pool = moving; break;
-            default: pool = new String[]{"https://images.unsplash.com/photo-1581578731548-c64695cc6958"}; break;
+        switch (category) {
+            case "Plumbing":    pool = plumbing; break;
+            case "Electrical":  pool = electrical; break;
+            case "Tutoring":    pool = tutoring; break;
+            case "Cleaning":    pool = cleaning; break;
+            case "AC Repair":   pool = ac; break;
+            case "Pest Control":pool = pest; break;
+            case "Gardening":   pool = garden; break;
+            case "Moving":      pool = moving; break;
+            default:            pool = new String[]{"https://images.unsplash.com/photo-1581578731548-c64695cc6958"}; break;
         }
-        
         return pool[j % pool.length] + "?auto=format&fit=crop&w=800&q=80";
     }
 
     private String getServiceTitle(String category, int index) {
         switch (category) {
-            case "Plumbing":
+            case "Plumbing": {
                 String[] p = {"Emergency Leak Repair", "Full Bathroom Revive", "Advanced Kitchen Plumbing", "Drainage System Maintenance"};
                 return p[index % p.length];
-            case "Electrical":
+            }
+            case "Electrical": {
                 String[] e = {"Smart Home Wiring", "Modern Lighting Setup", "Electrical Safety Audit", "System Upgrade & Repair"};
                 return e[index % e.length];
-            case "Tutoring":
+            }
+            case "Tutoring": {
                 String[] t = {"Advanced Mathematics", "Physics Masterclass", "SAT/GRE Preparation", "Creative Writing Workshop"};
                 return t[index % t.length];
-            case "Cleaning":
+            }
+            case "Cleaning": {
                 String[] c = {"Deep Sanitization", "Premium Office Cleaning", "Industrial Space Revive", "Eco-Friendly Home Wash"};
                 return c[index % c.length];
-            case "AC Repair":
+            }
+            case "AC Repair": {
                 String[] ac = {"Central Air Installation", "Split AC Duct Cleaning", "Rapid Cooling Maintenance", "Gas Refill & Check"};
                 return ac[index % ac.length];
-            case "Pest Control":
+            }
+            case "Pest Control": {
                 String[] pc = {"Full Home Disinfection", "Commercial Pest Shield", "Ant & Termite Protection", "Herbal Pest Control"};
                 return pc[index % pc.length];
-            case "Gardening":
+            }
+            case "Gardening": {
                 String[] g = {"Landscape Design", "Lawn Overhaul", "Vertical Garden Setup", "Periodic Yard Care"};
                 return g[index % g.length];
-            case "Moving":
+            }
+            case "Moving": {
                 String[] m = {"Interstate Relocation", "Local Furniture Transit", "Fragile Art Packing", "Office Asset Move"};
                 return m[index % m.length];
+            }
             default:
                 return "Expert " + category + " Solutions";
         }

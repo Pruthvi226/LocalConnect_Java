@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -18,12 +19,12 @@ public class FavoriteController {
 
     @PostMapping("/{serviceId}")
     public ResponseEntity<FavoriteDto> addToFavorites(@PathVariable Long serviceId) {
-        return ResponseEntity.ok(favoriteService.addToFavorites(serviceId));
+        return ResponseEntity.ok(favoriteService.addToFavorites(Objects.requireNonNull(serviceId)));
     }
 
     @DeleteMapping("/{serviceId}")
     public ResponseEntity<Map<String, String>> removeFromFavorites(@PathVariable Long serviceId) {
-        favoriteService.removeFromFavorites(serviceId);
+        favoriteService.removeFromFavorites(Objects.requireNonNull(serviceId));
         return ResponseEntity.ok(Map.of("message", "Service removed from favorites"));
     }
 
@@ -34,7 +35,7 @@ public class FavoriteController {
 
     @GetMapping("/check/{serviceId}")
     public ResponseEntity<Map<String, Boolean>> isFavorite(@PathVariable Long serviceId) {
-        boolean isFavorite = favoriteService.isFavorite(serviceId);
+        boolean isFavorite = favoriteService.isFavorite(Objects.requireNonNull(serviceId));
         return ResponseEntity.ok(Map.of("isFavorite", isFavorite));
     }
 }

@@ -1,0 +1,40 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -------------------< com.nearnest:nearnest-backend >--------------------
+[INFO] Building NearNest 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ nearnest-backend ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 0 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ nearnest-backend ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 82 source files with javac [debug parameters release 17] to target\classes
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /C:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/service/BookingService.java:[194,79] cannot find symbol
+  symbol:   variable BOOKING_UPDATED
+  location: class com.nearnest.model.Notification.NotificationType
+[INFO] 1 error
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  3.678 s
+[INFO] Finished at: 2026-03-30T16:04:42+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.13.0:compile (default-compile) on project nearnest-backend: Compilation failure
+[ERROR] /C:/Users/pruthviraj/OneDrive/Desktop/jdk/LocalConnect/backend/src/main/java/com/nearnest/service/BookingService.java:[194,79] cannot find symbol
+[ERROR]   symbol:   variable BOOKING_UPDATED
+[ERROR]   location: class com.nearnest.model.Notification.NotificationType
+[ERROR] 
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

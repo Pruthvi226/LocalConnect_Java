@@ -14,12 +14,16 @@ const RoleSelection = () => {
     hover: { y: -8, scale: 1.02 },
   };
 
-  const handleCustomerClick = () => {
-    navigate(isRegister ? '/register/customer' : '/login/customer');
+  const handleUserClick = (e) => {
+    e.preventDefault();
+    const path = isRegister ? '/register/Customer' : '/login/Customer';
+    navigate(path);
   };
 
-  const handleProviderClick = () => {
-    navigate(isRegister ? '/register/provider' : '/login/provider');
+  const handleProviderClick = (e) => {
+    e.preventDefault();
+    const path = isRegister ? '/register/provider' : '/login/provider';
+    navigate(path);
   };
 
   return (
@@ -37,7 +41,7 @@ const RoleSelection = () => {
           <p className="text-slate-500 font-medium max-w-xl mx-auto">
             {isRegister 
               ? "Create your identity to start exploring services or growing your business."
-              : "Choose whether you want to explore services as a customer or manage your jobs as a service provider."
+              : "Choose whether you want to explore services as a Customer or manage your jobs as a Provider."
             }
           </p>
         </div>
@@ -50,7 +54,7 @@ const RoleSelection = () => {
             animate="animate"
             whileHover="hover"
             transition={{ type: 'spring', stiffness: 220, damping: 18 }}
-            onClick={handleCustomerClick}
+            onClick={handleUserClick}
             className="group relative overflow-hidden rounded-[2rem] bg-white shadow-[0_20px_50px_-12px_rgba(79,70,229,0.1)] border border-indigo-50 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-white to-white group-hover:from-indigo-50 transition-colors" />
@@ -145,4 +149,5 @@ const ArrowRight = ({ className }) => (
 );
 
 export default RoleSelection;
+
 

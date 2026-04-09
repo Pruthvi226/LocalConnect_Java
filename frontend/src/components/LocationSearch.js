@@ -89,7 +89,7 @@ const LocationSearch = ({ onLocationSelect, placeholder = "Search city or area..
       {showMockDropdown && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden">
           <div className="p-3 border-b border-slate-50 bg-slate-50/50">
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Select a Demo Zone</p>
+            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Select a production Zone</p>
           </div>
           {mockCities.map(city => (
             <button
@@ -122,3 +122,4 @@ const LocationSearch = ({ onLocationSelect, placeholder = "Search city or area..
 };
 
 export default LocationSearch;
+

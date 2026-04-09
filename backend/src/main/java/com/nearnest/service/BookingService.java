@@ -12,16 +12,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.lang.NonNull;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import com.nearnest.model.Payment;
+import com.nearnest.repository.PaymentRepository;
+import java.math.BigDecimal;
 
 @org.springframework.stereotype.Service
 public class BookingService {
     @Autowired
     BookingRepository bookingRepository;
+
+    @Autowired
+    PaymentRepository paymentRepository;
 
     @Autowired
     ServiceRepository serviceRepository;
@@ -48,7 +56,7 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
     
-    public Page<BookingDto> getUserBookingsPaginated(Pageable pageable) {
+    public Page<BookingDto> getUserBookingsPaginated(@NonNull Pageable pageable) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
@@ -56,7 +64,7 @@ public class BookingService {
         return bookingRepository.findByUserId(currentUser.getId(), pageable).map(this::convertToDto);
     }
 
-    public Page<BookingDto> getAllBookings(Pageable pageable) {
+    public Page<BookingDto> getAllBookings(@NonNull Pageable pageable) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null || currentUser.getRole() != User.Role.ADMIN) {
             throw new RuntimeException("Only admins can view all bookings");
@@ -65,7 +73,7 @@ public class BookingService {
     }
 
     @Transactional
-    public BookingDto createBooking(Long serviceId, LocalDateTime bookingDate, String notes, Boolean isEmergency, String problemImageUrl) {
+    public BookingDto createBooking(@NonNull Long serviceId, LocalDateTime bookingDate, String notes, Boolean isEmergency, String problemImageUrl, String paymentMethod) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
@@ -92,7 +100,14 @@ public class BookingService {
         booking.setUser(currentUser);
         booking.setService(service);
         booking.setBookingDate(bookingDate);
-        booking.setStatus(BookingStatus.PENDING_PAYMENT);
+        
+        // If OFFLINE, confirm immediately as per user requirement
+        if ("OFFLINE".equalsIgnoreCase(paymentMethod)) {
+            booking.setStatus(BookingStatus.CONFIRMED);
+        } else {
+            booking.setStatus(BookingStatus.PENDING_PAYMENT);
+        }
+
         booking.setNotes(notes);
         booking.setIsEmergency(isEmergency != null ? isEmergency : false);
         booking.setProblemImageUrl(problemImageUrl);
@@ -111,9 +126,20 @@ public class BookingService {
 
         Booking savedBooking = bookingRepository.save(booking);
 
+        // Create initial payment record ONLY for ONLINE bookings.
+        // OFFLINE bookings: payment is created when provider confirms cash via /payments/offline/confirm
+        if (!"OFFLINE".equalsIgnoreCase(paymentMethod)) {
+            Payment payment = new Payment();
+            payment.setBooking(savedBooking);
+            payment.setAmount(BigDecimal.valueOf(savedBooking.getTotalPrice()));
+            payment.setPaymentMethod(paymentMethod != null ? paymentMethod.toUpperCase() : "ONLINE");
+            payment.setStatus(Payment.PaymentStatus.PENDING);
+            paymentRepository.save(payment);
+        }
+
         // Notify provider (realtime via NotificationService)
         notificationService.createNotification(
-                service.getProvider(),
+                Objects.requireNonNull(service.getProvider()),
                 "New Booking",
                 "New booking #" + savedBooking.getId() + " for " + service.getTitle(),
                 Notification.NotificationType.BOOKING_CREATED,
@@ -133,11 +159,11 @@ public class BookingService {
 
     @Transactional
     public BookingDto updateBooking(Long id, BookingStatus status, String notes) {
-        return updateBooking(id, status, notes, null, null, null, null, null);
+        return updateBooking(Objects.requireNonNull(id), status, notes, null, null, null, null, null);
     }
 
     @Transactional
-    public BookingDto updateBooking(Long id, BookingStatus status, String notes, 
+    public BookingDto updateBooking(@NonNull Long id, BookingStatus status, String notes, 
                                     String beforeImageUrl, String afterImageUrl,
                                     Double providerLat, Double providerLng, Integer etaMinutes) {
         Booking booking = bookingRepository.findById(id)
@@ -158,7 +184,15 @@ public class BookingService {
         }
 
         BookingStatus oldStatus = booking.getStatus();
-        if (status != null) {
+        
+        // Prevent updates if already completed or cancelled (except for specific overrides)
+        if ((oldStatus == BookingStatus.COMPLETED || oldStatus == BookingStatus.CANCELLED) && currentUser.getRole() != User.Role.ADMIN) {
+            throw new RuntimeException("Cannot update a booking that is already " + oldStatus);
+        }
+
+        if (status != null && status != oldStatus) {
+            // Validate transition logic
+            validateStatusTransition(oldStatus, status, currentUser.getRole());
             booking.setStatus(status);
         }
         if (notes != null) {
@@ -186,29 +220,53 @@ public class BookingService {
         if (oldStatus != saved.getStatus()) {
             User customer = booking.getUser();
             User provider = booking.getService().getProvider();
+            
+            String title = "Booking Status Updated";
+            String message = "Your booking #" + saved.getId() + " status is now " + saved.getStatus();
+            Notification.NotificationType type = Notification.NotificationType.BOOKING_UPDATED;
+
             if (saved.getStatus() == BookingStatus.CONFIRMED) {
-                notificationService.createNotification(customer, "Booking Confirmed",
-                        "Your booking #" + saved.getId() + " has been confirmed.",
-                        Notification.NotificationType.BOOKING_CONFIRMED, saved.getId());
+                title = "Booking Confirmed";
+                message = "Your booking #" + saved.getId() + " has been confirmed.";
+                type = Notification.NotificationType.BOOKING_CONFIRMED;
+            } else if (saved.getStatus() == BookingStatus.ACCEPTED) {
+                title = "Booking Accepted";
+                message = "Provider has accepted your booking #" + saved.getId() + ".";
+                type = Notification.NotificationType.BOOKING_ACCEPTED;
+            } else if (saved.getStatus() == BookingStatus.ARRIVED) {
+                title = "Provider Arrived";
+                message = "The provider has arrived for your booking #" + saved.getId() + ".";
+                type = Notification.NotificationType.PROVIDER_ARRIVED;
+            } else if (saved.getStatus() == BookingStatus.IN_PROGRESS) {
+                title = "Service Started";
+                message = "The service for booking #" + saved.getId() + " has started.";
+                type = Notification.NotificationType.SERVICE_STARTED;
             } else if (saved.getStatus() == BookingStatus.COMPLETED) {
-                notificationService.createNotification(customer, "Booking Completed",
-                        "Booking #" + saved.getId() + " has been marked completed.",
-                        Notification.NotificationType.BOOKING_COMPLETED, saved.getId());
-                userService.recalculateTrustScore(provider.getId());
+                title = "Booking Completed";
+                message = "Booking #" + saved.getId() + " has been marked completed.";
+                type = Notification.NotificationType.BOOKING_COMPLETED;
+                userService.recalculateTrustScore(Objects.requireNonNull(Objects.requireNonNull(provider).getId()));
+                
+                // If it was a paid booking, we might want more logic here
+                // For now, let's keep it simple
             } else if (saved.getStatus() == BookingStatus.CANCELLED) {
                 User toNotify = currentUser.getId().equals(provider.getId()) ? customer : provider;
-                notificationService.createNotification(toNotify, "Booking Cancelled",
-                        "Booking #" + saved.getId() + " has been cancelled.",
-                        Notification.NotificationType.BOOKING_CANCELLED, saved.getId());
-                userService.recalculateTrustScore(provider.getId());
+                title = "Booking Cancelled";
+                message = "Booking #" + saved.getId() + " has been cancelled.";
+                type = Notification.NotificationType.BOOKING_CANCELLED;
+                userService.recalculateTrustScore(Objects.requireNonNull(Objects.requireNonNull(provider).getId()));
+                notificationService.createNotification(Objects.requireNonNull(toNotify), title, message, type, saved.getId());
+                return convertToDto(saved); // Early return for cancelled
             }
+            
+            notificationService.createNotification(Objects.requireNonNull(customer), title, message, type, saved.getId());
         }
 
         return convertToDto(saved);
     }
 
     @Transactional
-    public void cancelBooking(Long id) {
+    public void cancelBooking(@NonNull Long id) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
 
@@ -225,20 +283,52 @@ public class BookingService {
         booking.setStatus(BookingStatus.CANCELLED);
         bookingRepository.save(booking);
 
-        // Notify provider
         notificationService.createNotification(
-                booking.getService().getProvider(),
+                Objects.requireNonNull(booking.getService().getProvider()),
                 "Booking Cancelled",
                 "Booking #" + booking.getId() + " was cancelled by the customer.",
                 Notification.NotificationType.BOOKING_CANCELLED,
                 booking.getId()
         );
 
-        userService.recalculateTrustScore(booking.getService().getProvider().getId());
+        userService.recalculateTrustScore(Objects.requireNonNull(Objects.requireNonNull(booking.getService().getProvider()).getId()));
     }
 
-    public Optional<BookingDto> getBookingById(Long id) {
+    public Optional<BookingDto> getBookingById(@NonNull Long id) {
         return bookingRepository.findById(id).map(this::convertToDto);
+    }
+
+    public Optional<Booking> getBookingEntityById(@NonNull Long id) {
+        return bookingRepository.findById(id);
+    }
+
+    private void validateStatusTransition(BookingStatus oldStatus, BookingStatus newStatus, User.Role userRole) {
+        if (newStatus == BookingStatus.CANCELLED) return; // Cancellations allowed from anywhere usually
+        if (userRole == User.Role.ADMIN) return; // Admins can override
+
+        boolean valid = false;
+        switch (oldStatus) {
+            case PENDING:
+            case PENDING_PAYMENT:
+            case CONFIRMED:
+                if (newStatus == BookingStatus.ACCEPTED) valid = true;
+                break;
+            case ACCEPTED:
+                if (newStatus == BookingStatus.ARRIVED) valid = true;
+                break;
+            case ARRIVED:
+                if (newStatus == BookingStatus.IN_PROGRESS) valid = true;
+                break;
+            case IN_PROGRESS:
+                if (newStatus == BookingStatus.COMPLETED || newStatus == BookingStatus.REVIEW_PENDING) valid = true;
+                break;
+            default:
+                break;
+        }
+
+        if (!valid) {
+            throw new RuntimeException("Invalid status transition from " + oldStatus + " to " + newStatus);
+        }
     }
 
     public BookingDto convertToDto(Booking b) {

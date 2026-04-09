@@ -17,6 +17,13 @@ public class UserDto {
     private String emergencyContactName;
     private String emergencyContactPhone;
 
+    // Provider Payout Details
+    private String bankAccountNumber;
+    private String ifscCode;
+    private String upiId;
+    private Double averageRating;
+    private Integer totalReviews;
+
     public UserDto() {}
 
     public static UserDto fromEntity(User u) {
@@ -34,6 +41,11 @@ public class UserDto {
         dto.setCancellationRate(u.getCancellationRate());
         dto.setEmergencyContactName(u.getEmergencyContactName());
         dto.setEmergencyContactPhone(u.getEmergencyContactPhone());
+        dto.setBankAccountNumber(u.getBankAccountNumber());
+        dto.setIfscCode(u.getIfscCode());
+        dto.setUpiId(u.getUpiId());
+        dto.setAverageRating(u.getAverageRating());
+        dto.setTotalReviews(u.getTotalReviews());
         return dto;
     }
 
@@ -64,4 +76,14 @@ public class UserDto {
     public void setEmergencyContactName(String emergencyContactName) { this.emergencyContactName = emergencyContactName; }
     public String getEmergencyContactPhone() { return emergencyContactPhone; }
     public void setEmergencyContactPhone(String emergencyContactPhone) { this.emergencyContactPhone = emergencyContactPhone; }
+    public String getBankAccountNumber() { return bankAccountNumber; }
+    public void setBankAccountNumber(String bankAccountNumber) { this.bankAccountNumber = bankAccountNumber; }
+    public String getIfscCode() { return ifscCode; }
+    public void setIfscCode(String ifscCode) { this.ifscCode = ifscCode; }
+    public String getUpiId() { return upiId; }
+    public void setUpiId(String upiId) { this.upiId = upiId; }
+    public Double getAverageRating() { return averageRating; }
+    public void setAverageRating(Double averageRating) { this.averageRating = averageRating; }
+    public Integer getTotalReviews() { return totalReviews; }
+    public void setTotalReviews(Integer totalReviews) { this.totalReviews = totalReviews; }
 }

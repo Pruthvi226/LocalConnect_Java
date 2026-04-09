@@ -1,33 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Briefcase, Lock, ArrowRight, Eye, EyeOff, UserCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const LoginProvider = () => {
-  const [username, setUsername] = useState('');
+  const [Username, setUsername] = useState(() => localStorage.getItem('remembered_provider_Username') || '');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(!!localStorage.getItem('remembered_provider_Username'));
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    // Explicitly reset the password field on mount
+    setPassword('');
+    // If not remembering me, ensure username is blank
+    if (!localStorage.getItem('remembered_provider_Username')) {
+      setUsername('');
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     
-    if (!username || !password) {
+    if (!Username || !password) {
       setError('Credentials required for provider authentication.');
       return;
     }
 
     setLoading(true);
     try {
-      await login(username, password);
+      const userData = await login(Username, password, rememberMe);
+      
+      // Role validation: only PROVIDER accounts can access the provider dashboard
+      const role = userData?.role || localStorage.getItem('userRole');
+      if (role && role !== 'PROVIDER') {
+        // Log out the just-logged-in user to prevent unauthorized access
+        localStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_token');
+        setError('This account is not a provider account. Please use Customer Login instead.');
+        setLoading(false);
+        return;
+      }
+
+      if (rememberMe) {
+        localStorage.setItem('remembered_provider_Username', Username);
+      } else {
+        localStorage.removeItem('remembered_provider_Username');
+      }
+
       navigate('/provider/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Authentication failed. Please verify provider credentials.');
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Authentication failed. Please verify provider credentials.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -61,8 +90,8 @@ const LoginProvider = () => {
               <div className="absolute inset-0 bg-indigo-200 rounded-2xl blur-lg opacity-0 group-hover:opacity-40 transition-opacity"></div>
               <Briefcase className="w-8 h-8 text-indigo-600 relative z-10" />
             </motion.div>
-            <h1 className="text-4xl font-black text-slate-900 mb-3 tracking-tight">Provider <span className="text-indigo-600">Console.</span></h1>
-            <p className="text-slate-500 font-medium">Managing your professional service output</p>
+            <h1 className="text-4xl font-black text-slate-900 mb-3 tracking-tight">Provider <span className="text-indigo-600">Login.</span></h1>
+            <p className="text-slate-500 font-medium">Manage your services and bookings</p>
           </div>
 
           <AnimatePresence mode="wait">
@@ -81,25 +110,26 @@ const LoginProvider = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Provider ID / Username</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Username</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                   <Briefcase className="h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
                 </div>
                 <input
                   type="text"
-                  value={username}
+                  value={Username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-500/20 focus:bg-white rounded-2xl py-4 pl-12 pr-5 text-slate-900 font-bold outline-none transition-all placeholder:text-slate-300 shadow-sm"
-                  placeholder="provider_expert_01"
+                  placeholder="your_username"
                   required
+                  autoComplete="off"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex justify-between items-center px-1">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Secret / Password</label>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Password</label>
                 <Link to="/forgot-password" size="sm" className="text-[10px] font-black uppercase text-indigo-600 hover:underline tracking-widest">
                   Reset Key?
                 </Link>
@@ -115,6 +145,7 @@ const LoginProvider = () => {
                   className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-500/20 focus:bg-white rounded-2xl py-4 pl-12 pr-12 text-slate-900 font-bold outline-none transition-all placeholder:text-slate-300 shadow-sm"
                   placeholder="••••••••"
                   required
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -124,6 +155,22 @@ const LoginProvider = () => {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+            </div>
+
+            <div className="flex items-center justify-between px-1">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-10 h-6 rounded-full transition-colors duration-200 ease-in-out ${rememberMe ? 'bg-indigo-600' : 'bg-slate-200'}`}></div>
+                  <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out ${rememberMe ? 'translate-x-4' : 'translate-x-0'} shadow-sm`}></div>
+                </div>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-600 transition-colors">Keep Session Active</span>
+              </label>
             </div>
 
             <div className="pt-4">
@@ -136,7 +183,7 @@ const LoginProvider = () => {
                   <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
                 ) : (
                   <>
-                    Open Provider Console
+                    Sign In
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
@@ -152,7 +199,7 @@ const LoginProvider = () => {
                </p>
                <div className="flex items-center gap-4">
                   <div className="h-px bg-slate-100 flex-1"></div>
-                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">User Switch</span>
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Account Type</span>
                   <div className="h-px bg-slate-100 flex-1"></div>
                </div>
                <Link 
@@ -176,3 +223,4 @@ const LoginProvider = () => {
 };
 
 export default LoginProvider;
+

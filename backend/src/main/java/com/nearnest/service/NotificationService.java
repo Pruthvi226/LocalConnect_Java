@@ -8,8 +8,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.lang.NonNull;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,8 +26,8 @@ public class NotificationService {
     private AuthService authService;
 
     @Transactional
-    public NotificationDto createNotification(User user, String title, String message,
-                                           Notification.NotificationType type, Long relatedId) {
+    public NotificationDto createNotification(@NonNull User user, @NonNull String title, @NonNull String message,
+                                           @NonNull Notification.NotificationType type, Long relatedId) {
         Notification notification = new Notification();
         notification.setUser(user);
         notification.setTitle(title);
@@ -37,7 +39,7 @@ public class NotificationService {
         Notification saved = notificationRepository.save(notification);
         NotificationDto dto = NotificationDto.fromEntity(saved);
         // Realtime push to user
-        messagingTemplate.convertAndSendToUser(user.getUsername(), "/queue/notifications", dto);
+        messagingTemplate.convertAndSendToUser(Objects.requireNonNull(user.getUsername()), "/queue/notifications", Objects.requireNonNull(dto));
         return dto;
     }
 
@@ -70,7 +72,7 @@ public class NotificationService {
     }
 
     @Transactional
-    public void markAsRead(Long notificationId) {
+    public void markAsRead(@NonNull Long notificationId) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
@@ -98,6 +100,6 @@ public class NotificationService {
         for (Notification notification : unreadNotifications) {
             notification.setIsRead(true);
         }
-        notificationRepository.saveAll(unreadNotifications);
+        notificationRepository.saveAll(Objects.requireNonNull(unreadNotifications));
     }
 }

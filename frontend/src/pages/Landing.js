@@ -61,14 +61,14 @@ const Landing = () => {
                   onClick={() => navigate('/role-selection')}
                   className="btn-primary py-4 px-10 text-lg flex items-center justify-center gap-2 group"
                 >
-                  Start Discovery
+                  Find Services Near You
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </button>
                 <Link
                   to="/search"
                   className="flex items-center justify-center p-4 px-10 text-lg font-bold text-slate-700 hover:text-primary-600 bg-slate-50 hover:bg-white border border-slate-200 hover:border-primary-200 rounded-xl transition-all shadow-sm"
                 >
-                  Browse Services
+                  Find Services
                 </Link>
               </div>
 
@@ -78,12 +78,12 @@ const Landing = () => {
                    <div className="flex -space-x-3">
                      {[1,2,3,4].map(i => (
                        <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-slate-200 overflow-hidden">
-                         <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="User" />
+                         <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="Customer" />
                        </div>
                      ))}
                    </div>
                    <div>
-                     <p className="text-sm font-bold text-slate-900">5,000+ Users</p>
+                     <p className="text-sm font-bold text-slate-900">5,000+ Customers</p>
                      <p className="text-xs text-slate-500 font-medium tracking-tight">Trusting ProxiSense expertise</p>
                    </div>
                  </div>
@@ -173,7 +173,7 @@ const Landing = () => {
                   </div>
                   <div>
                     <p className="font-bold text-xl">Jane Cooper</p>
-                    <p className="text-primary-200">Home Owner & Loyal User</p>
+                    <p className="text-primary-200">Home Owner & Loyal Customer</p>
                   </div>
                 </div>
               </div>
@@ -247,5 +247,6 @@ const FeatureCard = ({ icon: Icon, title, desc, color }) => {
 };
 
 export default Landing;
+
 
 

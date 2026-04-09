@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 @CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"}, allowCredentials = "true")
 @RestController
@@ -22,6 +23,6 @@ public class MLRecommendationController {
      */
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<ServiceDto>> getRecommendations(@PathVariable(name = "userId") Long userId) {
-        return ResponseEntity.ok(recommendationService.getRecommendationsForUser(userId));
+        return ResponseEntity.ok(recommendationService.getRecommendationsForUser(Objects.requireNonNull(userId)));
     }
 }

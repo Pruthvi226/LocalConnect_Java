@@ -7,7 +7,7 @@ export const adminService = {
   },
 
   getAllUsers: async () => {
-    const response = await api.get('/admin/users');
+    const response = await api.get('/admin/Users');
     return response.data;
   },
 
@@ -16,3 +16,4 @@ export const adminService = {
     return response.data;
   },
 };
+

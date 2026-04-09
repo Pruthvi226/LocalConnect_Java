@@ -5,14 +5,14 @@ import {
   Calendar, Heart, MessageCircle, 
   Bell, BookOpen, Search, Star,
   TrendingUp, ArrowRight, User,
-  Plus, CheckCircle2, Clock, Zap, MapPin
+  Plus, CheckCircle2, Clock, Zap, MapPin, DollarSign
 } from 'lucide-react';
-import { customerService } from '../services/customerService';
+import { UserService as customerService } from '../services/customerService';
 import { bookingService } from '../services/bookingService';
 import { favoriteService } from '../services/favoriteService';
 import { DashboardStatsSkeleton } from '../components/Skeleton';
 
-const CustomerDashboard = () => {
+const UserDashboard = () => {
   const [summary, setSummary] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -25,6 +25,7 @@ const CustomerDashboard = () => {
 
   const loadData = async () => {
     try {
+      setError(null);
       setLoading(true);
       const [summaryData, bookingsData, favoritesData] = await Promise.all([
         customerService.getSummary(),
@@ -32,11 +33,26 @@ const CustomerDashboard = () => {
         favoriteService.getAll(),
       ]);
       setSummary(summaryData);
-      setBookings(Array.isArray(bookingsData) ? bookingsData : []);
+      const bookingsContent = Array.isArray(bookingsData) ? bookingsData : (bookingsData?.content || []);
+      setBookings(bookingsContent);
       setFavorites(Array.isArray(favoritesData) ? favoritesData : []);
     } catch (err) {
       setError('Failed to load dashboard data. Please try again later.');
       console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = async (id) => {
+    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+    try {
+      setLoading(true);
+      await bookingService.cancel(id);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to cancel booking', err);
+      alert('Could not cancel booking. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -67,8 +83,8 @@ const CustomerDashboard = () => {
              <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Bell className="w-8 h-8" />
              </div>
-             <h2 className="text-2xl font-black text-slate-800 mb-2">Something went wrong</h2>
-             <p className="text-slate-500 font-medium mb-6">{error}</p>
+             <h2 className="text-2xl font-black text-slate-800 mb-2">Unable to load data.</h2>
+             <p className="text-slate-500 font-medium mb-6">Please try again.</p>
              <button onClick={loadData} className="btn-primary py-3 px-8">Try Again</button>
           </div>
         </div>
@@ -78,9 +94,9 @@ const CustomerDashboard = () => {
 
   const stats = [
     { label: 'Total Bookings', value: summary?.totalBookings ?? 0, icon: BookOpen, color: 'primary' },
-    { label: 'Active Tasks', value: summary?.pendingBookings ?? 0, icon: Clock, color: 'indigo' },
-    { label: 'Saved Services', value: summary?.favoritesCount ?? 0, icon: Heart, color: 'rose' },
-    { label: 'Unread Chats', value: summary?.unreadMessages ?? 0, icon: MessageCircle, color: 'cyan' },
+    { label: 'Active Services', value: summary?.pendingBookings ?? 0, icon: Clock, color: 'indigo' },
+    { label: 'Pending Payments', value: summary?.pendingPayments ?? 0, icon: DollarSign, color: 'rose' },
+    { label: 'Unread Messages', value: summary?.unreadMessages ?? 0, icon: MessageCircle, color: 'cyan' },
   ];
 
   return (
@@ -91,13 +107,13 @@ const CustomerDashboard = () => {
           <div className="flex items-center gap-5">
              <div className="relative">
                 <div className="w-20 h-20 bg-gradient-to-br from-primary-600 to-primary-400 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-primary-500/20">
-                   {summary?.user?.fullName?.charAt(0) || 'U'}
+                   {summary?.Customer?.fullName?.charAt(0) || 'U'}
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-slate-50 rounded-full"></div>
              </div>
              <div>
                 <h1 className="text-4xl font-black text-slate-900 tracking-tight">
-                  Welcome back, <span className="text-primary-600">{summary?.user?.fullName?.split(' ')[0] || 'Member'}</span>
+                  Welcome back, <span className="text-primary-600">{summary?.Customer?.fullName?.split(' ')[0] || 'Member'}</span>
                 </h1>
                 <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1 flex items-center gap-2">
                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
@@ -107,8 +123,8 @@ const CustomerDashboard = () => {
           </div>
           <div className="flex gap-3">
              <Link to="/search" className="btn-primary flex items-center gap-2 py-3 px-6 shadow-xl shadow-primary-500/10 active:scale-95 transition-all">
-                <Plus className="w-5 h-5" />
-                New Booking
+                <Search className="w-5 h-5" />
+                Find Services
              </Link>
              <Link to="/profile" className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm text-slate-600">
                 <User className="w-5 h-5" />
@@ -146,9 +162,9 @@ const CustomerDashboard = () => {
           <div className="lg:col-span-2 space-y-8">
             <section className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-premium">
               <div className="flex justify-between items-center mb-8 px-2">
-                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Current Timeline</h2>
-                <Link to="/bookings" className="text-sm font-bold text-primary-600 hover:text-primary-700 underline underline-offset-4 decoration-2">
-                  History
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Recent Bookings</h2>
+                <Link to="/my-bookings" className="text-sm font-bold text-primary-600 hover:text-primary-700 underline underline-offset-4 decoration-2">
+                  View All Bookings
                 </Link>
               </div>
               
@@ -181,6 +197,40 @@ const CustomerDashboard = () => {
                        <div className="text-right">
                           <StatusBadge status={b.status} />
                           <p className="text-lg font-black text-slate-900 mt-1">₹{b.service?.price}</p>
+                          <div className="flex gap-2 mt-2 justify-end">
+                            {b.status === 'CONFIRMED' && (
+                              <button 
+                                onClick={() => handleCancel(b.id)}
+                                className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-700 underline transition-all"
+                              >
+                                Cancel Booking
+                              </button>
+                            )}
+                            {b.status === 'IN_PROGRESS' && (
+                              <Link 
+                                to="/explore-map"
+                                className="text-[10px] font-black uppercase tracking-widest text-primary-600 hover:text-primary-700 underline transition-all"
+                              >
+                                Track Service
+                              </Link>
+                            )}
+                            {b.status === 'COMPLETED' && (
+                              <Link 
+                                to={`/services/${b.service?.id}`}
+                                className="text-[10px] font-black uppercase tracking-widest text-green-600 hover:text-green-700 underline transition-all"
+                              >
+                                Leave Review
+                              </Link>
+                            )}
+                            {b.status === 'PENDING' && (
+                              <Link 
+                                to={`/checkout/${b.id}`}
+                                className="px-3 py-1 bg-primary-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-primary-700 transition-colors shadow-lg shadow-primary-500/20"
+                              >
+                                Pay Now
+                              </Link>
+                            )}
+                          </div>
                        </div>
                     </div>
                   ))}
@@ -226,9 +276,9 @@ const CustomerDashboard = () => {
                  Quick Links
                </h3>
                <div className="space-y-3">
-                  <QuickAction label="Browse Services" icon={Search} to="/search" />
+                  <QuickAction label="Book a Service" icon={Search} to="/search" />
+                  <QuickAction label="View Bookings" icon={Calendar} to="/my-bookings" />
                   <QuickAction label="Nearby Experts" icon={MapPin} to="/nearby" />
-                  <QuickAction label="My Favorites" icon={Heart} to="/favorites" />
                   <QuickAction label="Chat History" icon={MessageCircle} to="/messages" />
                   <QuickAction label="Help & Support" icon={Bell} to="/support" />
                </div>
@@ -250,9 +300,9 @@ const CustomerDashboard = () => {
                       <Link key={f.id} to={`/services/${f.service?.id}`} className="flex items-center gap-4 group">
                          <div className="w-14 h-14 bg-slate-100 rounded-2xl overflow-hidden shadow-sm group-hover:scale-105 transition-transform">
                             {f.service?.imageUrl ? (
-                              <img src={f.service.imageUrl} alt="" className="w-full h-full object-cover" />
+                               <img src={f.service.imageUrl} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xl">🔨</div>
+                               <div className="w-full h-full flex items-center justify-center text-xl">🔨</div>
                             )}
                          </div>
                          <div className="flex-1 min-w-0">
@@ -312,5 +362,4 @@ const getServiceIcon = (category) => {
   return icons[category] || '🛠️';
 };
 
-export default CustomerDashboard;
-
+export default UserDashboard;

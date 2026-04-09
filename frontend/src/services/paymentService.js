@@ -22,12 +22,14 @@ export const paymentService = {
   },
 
   createRazorpayOrder: async (bookingId) => {
-    const response = await api.post('/payments/razorpay/create-order', { bookingId });
+    // Both /payments/razorpay/create-order and /payments/create-order work
+    const response = await api.post('/payments/create-order', { bookingId });
     return response.data;
   },
 
   verifyRazorpayPayment: async (paymentDetails) => {
-    const response = await api.post('/payments/razorpay/verify', paymentDetails);
+    // Both /payments/razorpay/verify and /payments/verify work
+    const response = await api.post('/payments/verify', paymentDetails);
     return response.data;
   },
 
@@ -39,4 +41,14 @@ export const paymentService = {
     });
     return response.data;
   },
+
+  createOfflinePayment: async (bookingId) => {
+    const response = await api.post(`/payments/offline/create/${bookingId}`);
+    return response.data;
+  },
+  getConfig: async () => {
+    const response = await api.get('/payments/config');
+    return response.data;
+  },
 };
+

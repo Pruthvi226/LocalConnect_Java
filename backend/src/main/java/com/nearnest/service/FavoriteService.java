@@ -8,8 +8,10 @@ import com.nearnest.repository.FavoriteRepository;
 import com.nearnest.repository.ServiceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.lang.NonNull;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @org.springframework.stereotype.Service
@@ -24,7 +26,7 @@ public class FavoriteService {
     AuthService authService;
 
     @Transactional
-    public FavoriteDto addToFavorites(Long serviceId) {
+    public FavoriteDto addToFavorites(@NonNull Long serviceId) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
@@ -39,15 +41,15 @@ public class FavoriteService {
         }
 
         Favorite favorite = new Favorite();
-        favorite.setUser(currentUser);
-        favorite.setService(service);
+        favorite.setUser(Objects.requireNonNull(currentUser));
+        favorite.setService(Objects.requireNonNull(service));
 
         Favorite savedFavorite = favoriteRepository.save(favorite);
         return FavoriteDto.fromEntity(savedFavorite);
     }
 
     @Transactional
-    public void removeFromFavorites(Long serviceId) {
+    public void removeFromFavorites(@NonNull Long serviceId) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
@@ -59,7 +61,7 @@ public class FavoriteService {
         Favorite favorite = favoriteRepository.findByUserAndService(currentUser, service)
                 .orElseThrow(() -> new RuntimeException("Service is not in favorites"));
 
-        favoriteRepository.delete(favorite);
+        favoriteRepository.delete(Objects.requireNonNull(favorite));
     }
 
     public List<FavoriteDto> getUserFavorites() {
@@ -68,12 +70,12 @@ public class FavoriteService {
             throw new RuntimeException("User not authenticated");
         }
 
-        return favoriteRepository.findByUser(currentUser).stream()
+        return favoriteRepository.findByUser(Objects.requireNonNull(currentUser)).stream()
                 .map(FavoriteDto::fromEntity)
                 .collect(Collectors.toList());
     }
 
-    public boolean isFavorite(Long serviceId) {
+    public boolean isFavorite(@NonNull Long serviceId) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             return false;

@@ -23,9 +23,9 @@ const Home = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [minRating, setMinRating] = useState(null);
   const [maxDistance, setMaxDistance] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
+  const [UserLocation, setUserLocation] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
+  const [pagination, setPagination] = useState({ page: 0, size: 9, totalPages: 0, totalElements: 0 });
 
   // AI Diagnosis State
   const [showDiagnosis, setShowDiagnosis] = useState(false);
@@ -68,23 +68,27 @@ const Home = () => {
         category: selectedCategory,
         minRating: minRating,
         maxDistanceKm: maxDistance,
-        userLat: userLocation?.latitude,
-        userLng: userLocation?.longitude
+        UserLat: UserLocation?.latitude,
+        UserLng: UserLocation?.longitude,
+        q: searchQuery,
+        page: pagination.page,
+        size: pagination.size
       });
     }, 500);
     return () => clearTimeout(handler);
-  }, [selectedCategory, minRating, maxDistance, userLocation]);
-
-  useEffect(() => {
-    filterServices();
-  }, [searchQuery, services]);
+  }, [selectedCategory, minRating, maxDistance, UserLocation, searchQuery, pagination.page]);
 
   const loadServices = async (filters = {}) => {
     try {
       setLoading(true);
-      const data = await serviceService.getAllWithFilters(filters);
-      setServices(data);
-      setFilteredServices(data);
+      const data = await serviceService.getAllPaginated(filters);
+      setServices(data.content || []);
+      setFilteredServices(data.content || []);
+      setPagination(prev => ({ 
+        ...prev, 
+        totalPages: data.totalPages || 0,
+        totalElements: data.totalElements || 0
+      }));
     } catch (err) {
       setError('Services could not be retrieved. Please check your connection.');
       console.error(err);
@@ -100,7 +104,7 @@ const Home = () => {
       (position) => {
         const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
         setUserLocation(coords);
-        loadServices({ userLat: coords.latitude, userLng: coords.longitude });
+        loadServices({ UserLat: coords.latitude, UserLng: coords.longitude });
       },
       () => loadServices(),
       { enableHighAccuracy: false, timeout: 5000 }
@@ -171,7 +175,7 @@ const Home = () => {
                  <div className="flex items-center px-4 lg:w-64">
                     <MapPin className="text-primary-500 w-5 h-5 mr-3" />
                     <span className="text-sm font-bold text-slate-500 truncate">
-                      {userLocation ? 'Broadcasting near you' : 'Detecting area...'}
+                      {UserLocation ? 'Broadcasting near you' : 'Detecting area...'}
                     </span>
                  </div>
                  <button 
@@ -318,6 +322,29 @@ const Home = () => {
                </AnimatePresence>
              </div>
            )}
+
+            {/* Pagination Controls */}
+            {!loading && filteredServices.length > 0 && pagination.totalPages > 1 && (
+               <div className="flex justify-center mt-16 gap-3">
+                  <button 
+                    disabled={pagination.page === 0}
+                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                    className="w-14 h-14 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 hover:text-primary-600 hover:border-primary-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                  >
+                     <ChevronRight className="w-6 h-6 rotate-180" />
+                  </button>
+                  <div className="flex items-center px-8 bg-white border border-slate-100 rounded-2xl font-black text-slate-400 shadow-sm">
+                     <span className="text-slate-900 mr-2">{pagination.page + 1}</span> / {pagination.totalPages}
+                  </div>
+                  <button 
+                    disabled={pagination.page >= pagination.totalPages - 1}
+                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                    className="w-14 h-14 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 hover:text-primary-600 hover:border-primary-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                  >
+                     <ChevronRight className="w-6 h-6" />
+                  </button>
+               </div>
+            )}
         </section>
 
         {/* ProxiSense Guarantee */}
@@ -344,7 +371,7 @@ const Home = () => {
                           <div className="w-8 h-8 bg-primary-500 rounded-lg flex-shrink-0 flex items-center justify-center">✔</div>
                           <div>
                              <p className="font-bold text-lg">Quality Assurance</p>
-                             <p className="text-slate-400 font-medium text-sm">Continuous monitoring of service ratings and customer feedback.</p>
+                             <p className="text-slate-400 font-medium text-sm">Continuous monitoring of service ratings and Customer feedback.</p>
                           </div>
                        </li>
                     </ul>
@@ -352,16 +379,16 @@ const Home = () => {
                  <div className="bg-white/5 backdrop-blur-md rounded-[2.5rem] border border-white/10 p-10">
                     <div className="flex items-center gap-4 mb-8 text-indigo-300">
                        <Sparkles className="w-10 h-10" />
-                       <p className="text-sm font-black uppercase tracking-[0.2em]">New: Smart Match AI</p>
+                       <p className="text-sm font-black uppercase tracking-[0.2em]">New: Expert Finder</p>
                     </div>
                     <p className="text-xl font-medium mb-10 leading-relaxed text-slate-300">
-                       "ProxiSense AI analyzed 50+ local providers and matched me with an electrician arriving in 20 minutes. Extraordinary service."
+                       "ProxiSense analyzed 50+ local providers and matched me with an electrician arriving in 20 minutes. Extraordinary service."
                     </p>
                     <div className="flex items-center gap-4">
-                       <img src="https://i.pravatar.cc/100?u=dev" className="w-12 h-12 rounded-full border-2 border-primary-500" alt="Testimonial" />
+                       <img src="https://i.pravatar.cc/100?u=dev" className="w-12 h-12 rounded-full border-2 border-primary-500" alt="Satisfied Client" />
                        <div>
                           <p className="font-black">David Miller</p>
-                          <p className="text-xs text-primary-400 font-bold uppercase tracking-wider">Early Adopter</p>
+                          <p className="text-xs text-primary-400 font-bold uppercase tracking-wider">Verified Customer</p>
                        </div>
                     </div>
                  </div>
@@ -370,16 +397,15 @@ const Home = () => {
         </section>
       </div>
 
-      {/* AI Diagnose Floating Button */}
       <motion.button
         initial={{ x: 100, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ delay: 0.5 }}
         onClick={() => setShowDiagnosis(true)}
-        className="fixed bottom-8 right-8 z-50 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-indigo-500/30 flex items-center gap-3 font-black text-sm active:scale-95 transition-all group"
+        className="fixed bottom-8 right-8 z-50 bg-slate-900 hover:bg-black text-white px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 font-black text-sm active:scale-95 transition-all group border-2 border-white/10"
       >
-        <BrainCircuit className="w-6 h-6 group-hover:animate-pulse" />
-        <span className="hidden sm:block">Diagnose My Problem</span>
+        <BrainCircuit className="w-6 h-6 group-hover:scale-110 transition-transform" />
+        <span className="hidden sm:block text-xs uppercase tracking-widest">Troubleshoot & Find</span>
       </motion.button>
 
       {/* AI Diagnosis Modal */}
@@ -401,12 +427,12 @@ const Home = () => {
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center">
-                    <BrainCircuit className="w-7 h-7 text-indigo-600" />
+                  <div className="w-12 h-12 bg-primary-100 rounded-2xl flex items-center justify-center">
+                    <BrainCircuit className="w-7 h-7 text-primary-600" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-black text-slate-900">AI Problem Diagnosis</h2>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Powered by ProxiSense AI</p>
+                    <h2 className="text-xl font-black text-slate-900">Expert Match Engine</h2>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Troubleshoot your service needs</p>
                   </div>
                 </div>
                 <button onClick={() => { setShowDiagnosis(false); setDiagnosisResult(null); setDiagnosisDesc(''); }}
@@ -437,9 +463,9 @@ const Home = () => {
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
                   >
                     {diagnosisLoading ? (
-                      <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Analyzing...</>
+                      <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Matching...</>
                     ) : (
-                      <><BrainCircuit className="w-5 h-5" /> Diagnose Problem</>
+                      <><BrainCircuit className="w-5 h-5" /> Find Expert Now</>
                     )}
                   </button>
                 </div>
@@ -490,4 +516,5 @@ const Home = () => {
 };
 
 export default Home;
+
 

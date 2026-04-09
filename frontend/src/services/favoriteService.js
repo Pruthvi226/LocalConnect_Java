@@ -20,3 +20,4 @@ export const favoriteService = {
     return response.data?.isFavorite ?? false;
   },
 };
+

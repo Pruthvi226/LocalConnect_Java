@@ -1,40 +1,35 @@
 import api from './api';
 
 export const authService = {
-  register: async (userData) => {
-    const response = await api.post('/auth/register', userData);
+  register: async (UserData) => {
+    const response = await api.post('/auth/register', UserData);
     return response.data;
   },
 
-  registerCustomer: async (userData) => {
-    const { role, ...rest } = userData;
+  registerUser: async (UserData) => {
+    const { role, ...rest } = UserData;
     const response = await api.post('/auth/register/customer', rest);
     return response.data;
   },
 
-  registerProvider: async (userData) => {
-    const { role, ...rest } = userData;
+  registerProvider: async (UserData) => {
+    const { role, ...rest } = UserData;
     const response = await api.post('/auth/register/provider', rest);
     return response.data;
   },
 
-  login: async (username, password) => {
+  login: async (username, password, rememberMe = false) => {
     const response = await api.post('/auth/login', { username, password });
     if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify({
-        id: response.data.id,
-        username: response.data.username,
-        email: response.data.email,
-        role: response.data.role,
-      }));
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem('auth_token', response.data.token);
     }
     return response.data;
   },
 
   logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('auth_token');
+    sessionStorage.removeItem('auth_token');
   },
 
   getCurrentUser: async () => {
@@ -43,11 +38,11 @@ export const authService = {
   },
 
   isAuthenticated: () => {
-    return !!localStorage.getItem('token');
+    return !!(localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'));
   },
 
-  getUser: () => {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+  getToken: () => {
+    return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
   },
 };
+

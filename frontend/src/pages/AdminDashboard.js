@@ -117,7 +117,7 @@ const AdminDashboard = () => {
                  <div className="flex items-center gap-4 mb-8">
                     {[
                       { id: 'overview', label: 'Ecosystem Pulse' },
-                      { id: 'users', label: 'Citizens' },
+                      { id: 'Users', label: 'Citizens' },
                       { id: 'providers', label: 'Experts' }
                     ].map(tab => (
                       <button 
@@ -302,4 +302,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
 

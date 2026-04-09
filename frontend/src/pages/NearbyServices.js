@@ -14,7 +14,7 @@ import { serviceService } from '../services/serviceService';
 
 const NearbyServices = () => {
   const [services, setServices] = useState([]);
-  const [userLocation, setUserLocation] = useState(null); // {latitude, longitude, address}
+  const [UserLocation, setUserLocation] = useState(null); // {latitude, longitude, address}
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [distanceRange, setDistanceRange] = useState(3);
@@ -23,7 +23,7 @@ const NearbyServices = () => {
   const [instantMode, setInstantMode] = useState(false);
   const [smartMatchMode, setSmartMatchMode] = useState(false);
   const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const [totalPages, setTotalPages] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   
   const scrollRefs = useRef({});
@@ -36,7 +36,7 @@ const NearbyServices = () => {
 
   const initGeolocation = () => {
     if (!navigator.geolocation) {
-      setError('Geospatial sensors not detected in this browser.');
+      setError('Location services not supported in this browser.');
       setLoading(false);
       return;
     }
@@ -51,10 +51,10 @@ const NearbyServices = () => {
         };
         setUserLocation(coords);
         setPage(0);
-        fetchNearby(coords, 0, false);
+        fetchNearby(coords, 0);
       },
       () => {
-        setError('Signal lost. Please enable location access or search for a specific city.');
+        setError('Location access denied. Please enable location access or search for a specific city.');
         setLoading(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -64,13 +64,12 @@ const NearbyServices = () => {
   const handleLocationSelect = (loc) => {
     setUserLocation(loc);
     setPage(0);
-    fetchNearby(loc, 0, false);
+    fetchNearby(loc, 0);
   };
 
-  const fetchNearby = async (coords, pageNum = 0, isLoadMore = false) => {
+  const fetchNearby = async (coords, pageNum = 0) => {
     try {
-      if (isLoadMore) setLoadingMore(true);
-      else setLoading(true);
+      setLoading(true);
 
       const filters = {
         userLat: coords.latitude,
@@ -79,7 +78,7 @@ const NearbyServices = () => {
         category: activeCategory === 'All' ? '' : activeCategory,
         isAvailableNow: instantMode ? true : undefined,
         page: pageNum,
-        size: 8
+        size: 10
       };
       
       const data = smartMatchMode 
@@ -87,34 +86,37 @@ const NearbyServices = () => {
         : await serviceService.getAllPaginated(filters);
         
       const items = data.content || data;
-      const isLast = data.last ?? true;
+      const totalPageCount = data.totalPages || 1;
 
-      if (isLoadMore) {
-         setServices(prev => [...prev, ...items]);
-      } else {
-         setServices(items);
-      }
-      setHasMore(!isLast);
+      setServices(items);
+      setTotalPages(totalPageCount);
       setError('');
     } catch (e) {
-      setError('Ecosystem sync failed. Retrying triangulation...');
+      setError('Connection failed. Retrying...');
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   };
 
   useEffect(() => {
-    if (userLocation) {
+    if (UserLocation) {
        setPage(0);
-       fetchNearby(userLocation, 0, false);
+       fetchNearby(UserLocation, 0);
     }
   }, [distanceRange, activeCategory, instantMode, smartMatchMode]);
 
-  const handleLoadMore = () => {
+  const handleNextPage = () => {
     const nextPage = page + 1;
     setPage(nextPage);
-    fetchNearby(userLocation, nextPage, true);
+    fetchNearby(UserLocation, nextPage);
+  };
+  
+  const handlePrevPage = () => {
+    const prevPage = page - 1;
+    if(prevPage >= 0) {
+      setPage(prevPage);
+      fetchNearby(UserLocation, prevPage);
+    }
   };
 
   const handleMarkerClick = (id) => {
@@ -136,10 +138,10 @@ const NearbyServices = () => {
               <div>
                 <div className="flex items-center gap-3 text-primary-600 mb-2 font-black uppercase tracking-[0.2em] text-[10px]">
                    <Navigation className="w-4 h-4" />
-                   Geospatial Discovery
+                   Nearby Services
                 </div>
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                  Micro-Local <span className="text-primary-600">Experts.</span>
+                  Local <span className="text-primary-600">Experts.</span>
                 </h1>
               </div>
 
@@ -147,13 +149,13 @@ const NearbyServices = () => {
               <div className="space-y-6">
                  <LocationSearch 
                    onLocationSelect={handleLocationSelect} 
-                   placeholder={userLocation?.address || "Search city or area..."}
+                   placeholder={UserLocation?.address || "Search city or area..."}
                  />
 
                  <div className="flex items-center gap-4">
                     <div className="flex-1">
                        <div className="flex justify-between items-center mb-3">
-                          <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Visibility Range</label>
+                          <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Search Radius</label>
                           <span className="text-xs font-black text-primary-600">{distanceRange}km</span>
                        </div>
                        <input 
@@ -237,20 +239,20 @@ const NearbyServices = () => {
                 <div className="py-12 text-center bg-red-50 rounded-[2.5rem] border border-red-100 p-8 m-2">
                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                    <p className="text-red-700 font-bold text-sm leading-relaxed">{error}</p>
-                   <button onClick={initGeolocation} className="mt-6 text-xs font-black uppercase tracking-widest text-red-600 underline">Recalibrate Signal</button>
+                   <button onClick={initGeolocation} className="mt-6 text-xs font-black uppercase tracking-widest text-red-600 underline">Retry Location</button>
                 </div>
               ) : services.length === 0 ? (
                 <div className="py-20 text-center opacity-40">
                    <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
                       <Search className="w-10 h-10 text-slate-300" />
                    </div>
-                   <h4 className="text-xl font-black text-slate-800 mb-2">No Clusters Found</h4>
+                   <h4 className="text-xl font-black text-slate-800 mb-2">No Services Found</h4>
                    <p className="text-slate-500 font-medium px-10">Try expanding your radius or searching another zone.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">
-                      {services.length} Professionals Syncing Nearby
+                      {services.length} Experts near you
                    </p>
                    <AnimatePresence mode="popLayout">
                       {services.map((service) => (
@@ -264,16 +266,26 @@ const NearbyServices = () => {
                          </div>
                       ))}
                     </AnimatePresence>
-                    {hasMore && (
-                       <button 
-                         onClick={handleLoadMore} 
-                         disabled={loadingMore}
-                         className="w-full py-4 mt-6 bg-white border border-slate-200 shadow-sm rounded-2xl text-slate-500 font-black uppercase tracking-widest text-xs hover:bg-slate-50 transition-colors flex justify-center items-center gap-2"
-                       >
-                         {loadingMore ? (
-                            <><div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div> Scanning...</>
-                         ) : 'Load More Experts'}
-                       </button>
+                    {totalPages > 1 && (
+                       <div className="flex justify-center mt-6 gap-4">
+                         <button 
+                           disabled={page === 0}
+                           onClick={handlePrevPage}
+                           className="p-3 bg-white border border-slate-100 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-all shadow-sm"
+                         >
+                          <ChevronRight className="w-5 h-5 rotate-180" />
+                         </button>
+                         <div className="flex items-center px-6 bg-white border border-slate-100 rounded-xl text-xs font-black text-slate-400">
+                            <span className="text-slate-900 mr-2">{page + 1}</span> / {totalPages}
+                         </div>
+                         <button 
+                           disabled={page >= totalPages - 1}
+                           onClick={handleNextPage}
+                           className="p-3 bg-white border border-slate-100 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-all shadow-sm"
+                         >
+                          <ChevronRight className="w-5 h-5" />
+                         </button>
+                       </div>
                     )}
                  </div>
               )}
@@ -286,9 +298,9 @@ const NearbyServices = () => {
                     <LocateFixed className="w-5 h-5 text-primary-500" />
                  </div>
                  <div className="min-w-0">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Geospatial Signal</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Your Location</p>
                     <p className="text-xs font-bold text-slate-800 truncate max-w-[220px]">
-                       {userLocation?.address || 'Detecting Area...'}
+                       {UserLocation?.address || 'Locating...'}
                     </p>
                  </div>
               </div>
@@ -305,7 +317,7 @@ const NearbyServices = () => {
         {/* Immersive Map Container */}
         <main className="flex-1 relative bg-slate-100 overflow-hidden">
            <MapSearch 
-             center={{ lat: userLocation?.latitude || 12.9716, lng: userLocation?.longitude || 77.5946 }}
+             center={{ lat: UserLocation?.latitude || 12.9716, lng: UserLocation?.longitude || 77.5946 }}
              services={services}
              onMarkerClick={(service) => handleMarkerClick(service.id)}
            />
@@ -321,8 +333,8 @@ const NearbyServices = () => {
                     <Zap className="w-5 h-5 text-white" />
                  </div>
                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary-400">Live Coverage</p>
-                    <p className="text-xs font-bold leading-none">{services.length} Active Hotspots</p>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary-400">Active Now</p>
+                    <p className="text-xs font-bold leading-none">{services.length} Available Services</p>
                  </div>
               </motion.div>
            </div>
@@ -349,6 +361,7 @@ const NearbyServices = () => {
 };
 
 export default NearbyServices;
+
 
 
 

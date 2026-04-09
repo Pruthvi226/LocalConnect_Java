@@ -24,7 +24,7 @@ const Favorites = () => {
       const data = await favoriteService.getAll();
       setFavorites(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError('Vault synchronization failed.');
+      setError('Failed to load favorites.');
     } finally {
       setLoading(false);
     }
@@ -43,7 +43,7 @@ const Favorites = () => {
     return (
       <div className="min-h-screen bg-slate-900 pt-32 px-6 flex flex-col items-center justify-center">
          <div className="w-20 h-20 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-         <p className="font-black text-white uppercase tracking-[0.3em] text-xs">Accessing Curation Vault...</p>
+         <p className="font-black text-white uppercase tracking-[0.3em] text-xs">Loading favorites...</p>
       </div>
     );
   }
@@ -59,7 +59,7 @@ const Favorites = () => {
            <div>
               <div className="flex items-center gap-3 text-rose-600 mb-2 font-black uppercase tracking-[0.2em] text-[10px]">
                  <Bookmark className="w-4 h-4" />
-                 Asset Curation Vault
+                 My Saved Services
               </div>
               <h1 className="text-4xl lg:text-6xl font-black text-slate-900 tracking-tight">
                 My <span className="text-rose-600">Curations.</span>
@@ -67,7 +67,7 @@ const Favorites = () => {
            </div>
            <div className="flex items-center gap-3">
               <div className="px-6 py-3 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Assets</p>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Saved</p>
                  <p className="text-xl font-black text-slate-900 leading-none">{services.length}</p>
               </div>
               <Link to="/" className="p-4 bg-slate-900 rounded-2xl text-white hover:scale-105 active:scale-95 transition-all shadow-xl shadow-slate-950/20">
@@ -87,12 +87,12 @@ const Favorites = () => {
                <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 border border-slate-100 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-sm">
                   <Heart className="w-10 h-10 text-slate-200 group-hover:text-rose-400 group-hover:fill-rose-400 transition-colors" />
                </div>
-               <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-4 uppercase leading-none">The Vault is Empty.</h2>
+               <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-4 uppercase leading-none">No Favorites Yet</h2>
                <p className="text-slate-500 font-bold mb-10 leading-relaxed text-sm">
-                  Start curating high-performance service clusters for your projects. Your saved experts and assets will materialize here.
+                  Start saving your favorite local experts. Your saved services will appear here.
                </p>
                <Link to="/" className="inline-flex items-center gap-3 px-10 py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-primary-600 hover:shadow-2xl hover:shadow-primary-500/30 transition-all active:scale-95">
-                  Begin Discovery
+                  Find Services
                   <Navigation className="w-4 h-4" />
                </Link>
             </div>
@@ -116,7 +116,7 @@ const Favorites = () => {
                     type="button"
                     onClick={() => handleRemove(service.id)}
                     className="absolute -top-3 -right-3 w-12 h-12 bg-white rounded-2xl shadow-2xl flex items-center justify-center text-slate-300 hover:text-rose-500 hover:scale-110 active:scale-90 transition-all z-20 border border-slate-50 hover:border-rose-100 group-hover:rotate-6"
-                    title="Evict Asset"
+                    title="Remove Favorite"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -125,7 +125,7 @@ const Favorites = () => {
                      <div className="flex flex-col gap-2">
                         <div className="px-4 py-2 bg-slate-900/90 backdrop-blur-md text-white rounded-xl text-[9px] font-black uppercase tracking-widest border border-white/10 shadow-2xl flex items-center gap-2">
                            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                           Priority Target
+                           Top Choice
                         </div>
                      </div>
                   </div>
@@ -143,8 +143,8 @@ const Favorites = () => {
                     <ShieldCheck className="w-6 h-6 text-slate-400" />
                  </div>
                  <div>
-                    <p className="text-xs font-black text-slate-800 uppercase tracking-widest leading-none mb-1">Immutable Ledger</p>
-                    <p className="text-[10px] font-bold text-slate-400 leading-none">Your curations are encrypted and synced across all nodes.</p>
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-widest leading-none mb-1">Saved Everywhere</p>
+                    <p className="text-[10px] font-bold text-slate-400 leading-none">Your favorite services are synced across all your devices.</p>
                  </div>
               </div>
               <div className="flex gap-2">
@@ -159,4 +159,5 @@ const Favorites = () => {
 };
 
 export default Favorites;
+
 

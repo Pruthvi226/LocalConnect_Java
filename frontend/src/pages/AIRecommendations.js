@@ -17,7 +17,7 @@ const AIRecommendations = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
+  const [UserLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
     navigator.geolocation?.getCurrentPosition(
@@ -27,14 +27,14 @@ const AIRecommendations = () => {
   }, []);
 
   const fetchRecommendations = useCallback(async () => {
-    if (!user?.id || !userLocation) return;
+    if (!user?.id || !UserLocation) return;
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE}/api/recommendations/user/${user.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Neural sync interrupted.');
+      if (!res.ok) throw new Error('Network sync interrupted.');
       const data = await res.json();
       setRecommendations(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -42,7 +42,7 @@ const AIRecommendations = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, userLocation]);
+  }, [user?.id, UserLocation]);
 
   useEffect(() => {
     fetchRecommendations();
@@ -56,8 +56,8 @@ const AIRecommendations = () => {
             <div className="absolute inset-4 border-4 border-secondary-400 border-b-transparent rounded-full animate-spin-slow"></div>
             <BrainCircuit className="absolute inset-0 m-auto w-8 h-8 text-white animate-pulse" />
          </div>
-         <p className="font-black text-white uppercase tracking-[0.4em] text-[10px] mb-2 animate-pulse">Initializing Neuro-Engine</p>
-         <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">Processing Core Preferences & Geospatial Clusters</p>
+         <p className="font-black text-white uppercase tracking-[0.4em] text-[10px] mb-2 animate-pulse">Curating recommendations</p>
+         <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">Analyzing your interests and location</p>
       </div>
     );
   }
@@ -78,13 +78,13 @@ const AIRecommendations = () => {
            <div className="max-w-xl">
               <div className="flex items-center gap-3 text-primary-400 mb-4 font-black uppercase tracking-[0.2em] text-[10px]">
                  <Sparkles className="w-4 h-4" />
-                 Predictive Intelligence Engine
+                 Personalized Recommendations
               </div>
               <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tight mb-6">
-                Tailored <span className="text-primary-500 italic">Discovery.</span>
+                Tailored <span className="text-primary-500 italic">For You.</span>
               </h1>
               <p className="text-slate-400 font-bold leading-relaxed">
-                 Our neural engine processed {recommendations.length * 42} data points including your past interactions, geospatial density, and expert availability to synthesize these clusters.
+                 Our smart recommendation engine analyzes your preferences and location to find the best experts for you.
               </p>
            </div>
            <div className="flex flex-col gap-4">
@@ -93,23 +93,23 @@ const AIRecommendations = () => {
                     <Activity className="w-6 h-6" />
                  </div>
                  <div>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Engine Health</p>
-                    <p className="text-sm font-black text-green-400 leading-none uppercase tracking-tighter">99.8% Sync Efficiency</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">System Status</p>
+                    <p className="text-sm font-black text-green-400 leading-none uppercase tracking-tighter">Online & Up to Date</p>
                  </div>
               </div>
               <div className="px-6 py-2 bg-primary-500 self-start lg:self-end rounded-full text-[9px] font-black text-white uppercase tracking-[0.2em] shadow-lg shadow-primary-500/20">
-                 Formula v4.2 Active
+                 Verified Services
               </div>
            </div>
         </header>
 
-        {/* Intelligence Logic HUD */}
+        {/* Selection Criteria */}
         <section className="mb-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
            {[
-             { l: 'User Preferences', v: 40, c: 'text-primary-400' },
-             { l: 'Expert Popularity', v: 30, c: 'text-secondary-400' },
-             { l: 'Geospatial Proximity', v: 20, c: 'text-amber-400' },
-             { l: 'Integrity Ratings', v: 10, c: 'text-emerald-400' }
+             { l: 'Your Interests', v: 40, c: 'text-primary-400' },
+             { l: 'Provider Rating', v: 30, c: 'text-secondary-400' },
+             { l: 'Distance', v: 20, c: 'text-amber-400' },
+             { l: 'Trust Score', v: 10, c: 'text-emerald-400' }
            ].map((item, i) => (
              <div key={i} className="bg-white/2 border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm">
                 <div className="flex justify-between items-end mb-4 font-black text-[10px] uppercase tracking-widest text-slate-500">
@@ -136,7 +136,7 @@ const AIRecommendations = () => {
             className="mb-12 bg-red-500/10 border border-red-500/20 rounded-3xl p-6 flex items-center gap-4 text-red-200"
           >
              <AlertTriangle className="w-6 h-6 text-red-500" />
-             <p className="text-sm font-bold uppercase tracking-tight">{error} Retrying neural handshake...</p>
+             <p className="text-sm font-bold uppercase tracking-tight">{error} Retrying connection...</p>
           </motion.div>
         )}
 
@@ -146,12 +146,12 @@ const AIRecommendations = () => {
              <div className="w-32 h-32 bg-white/5 rounded-[3rem] flex items-center justify-center mx-auto mb-10 border border-white/5">
                 <Waves className="w-16 h-16 text-slate-700 animate-pulse" />
              </div>
-             <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-4 leading-none">The Void is Still.</h3>
+             <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-4 leading-none">No matches found yet.</h3>
              <p className="text-slate-500 max-w-sm mx-auto font-bold mb-10">
-                Engage with the ecosystem to provide the data clusters needed for synthesis.
+                Explore more services to help us find better recommendations for you.
              </p>
              <Link to="/" className="inline-flex items-center gap-3 px-10 py-5 bg-primary-600 text-white rounded-[2rem] font-black uppercase tracking-widest text-xs hover:scale-105 transition-all">
-                Browse Global Services
+                Find Services
              </Link>
           </div>
         ) : (
@@ -167,7 +167,7 @@ const AIRecommendations = () => {
                 >
                   <Link to={`/services/${svc.id}`} className="block">
                      <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] overflow-hidden group-hover:border-primary-500/40 transition-all duration-500 shadow-2xl relative">
-                        {/* Confidence Index */}
+                        {/* Match Score */}
                         <div className="absolute top-6 right-6 z-20">
                            <div className="bg-slate-950/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-2 group-hover:bg-primary-600 group-hover:text-white transition-all">
                               <Zap className="w-3 h-3 text-amber-500 group-hover:text-white" />
@@ -175,7 +175,7 @@ const AIRecommendations = () => {
                            </div>
                         </div>
 
-                        {/* Visual Asset */}
+                        {/* Service Preview */}
                         <div className="h-64 relative overflow-hidden">
                            <img 
                               src={svc.imageUrl || `https://source.unsplash.com/featured/?${svc.category},service`} 
@@ -184,7 +184,7 @@ const AIRecommendations = () => {
                            />
                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
                            
-                           {/* Rank HUD */}
+                           {/* Rank */}
                            <div className="absolute bottom-6 left-8">
                               <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center font-black text-2xl text-white group-hover:bg-primary-500 transition-all">
                                  0{idx + 1}
@@ -192,11 +192,11 @@ const AIRecommendations = () => {
                            </div>
                         </div>
 
-                        {/* Entity Data */}
+                        {/* Service Details */}
                         <div className="p-8 pb-10">
                            <div className="flex items-center gap-3 mb-4">
                               <span className="bg-primary-500/10 text-primary-400 px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-primary-500/20">
-                                 {svc.category || 'General Cluster'}
+                                 {svc.category || 'Service'}
                               </span>
                               <div className="flex items-center gap-1.5 text-slate-400 font-bold text-xs uppercase tracking-tighter">
                                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
@@ -209,12 +209,12 @@ const AIRecommendations = () => {
                            </h3>
                            
                            <p className="text-sm font-bold text-slate-500 flex items-center gap-2 mb-6">
-                              <MapPin className="w-4 h-4 text-slate-700" /> {svc.location || 'Universal Node'}
+                              <MapPin className="w-4 h-4 text-slate-700" /> {svc.location || 'Local Area'}
                            </p>
 
                            <div className="flex items-center justify-between pt-6 border-t border-white/5">
                               <div>
-                                 <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Asset Value</p>
+                                 <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Service Price</p>
                                  <p className="text-xl font-black text-white">₹{svc.price || '500'}<span className="text-[10px] text-slate-500">/hr</span></p>
                               </div>
                               <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-slate-500 group-hover:bg-primary-500 group-hover:text-white transition-all shadow-xl">
@@ -234,14 +234,14 @@ const AIRecommendations = () => {
         <footer className="mt-24 p-12 bg-white/2 border border-white/5 rounded-[3rem] backdrop-blur-sm text-center">
            <div className="max-w-xl mx-auto">
               <Cpu className="w-10 h-10 text-primary-500 mx-auto mb-6" />
-              <h4 className="text-lg font-black text-white uppercase tracking-tight mb-4">Core Neural Policy</h4>
+              <h4 className="text-lg font-black text-white uppercase tracking-tight mb-4">Privacy & Data Policy</h4>
               <p className="text-xs font-bold text-slate-500 leading-relaxed mb-8">
-                 Recommendations are recalculated every 6 hours or upon significant ecosystem shifts. Your data remains siloed within the ProxiSense neural architecture.
+                 Recommendations are updated regularly based on your activity. Your data is secure and never shared without your permission.
               </p>
               <div className="flex gap-4 justify-center">
                  <div className="flex items-center gap-2 px-6 py-2 bg-slate-900 border border-white/5 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-widest">
                     <ShieldCheck className="w-4 h-4 text-green-500" />
-                    Privacy Node: Locked
+                    Secure & Private
                  </div>
               </div>
            </div>
@@ -253,4 +253,5 @@ const AIRecommendations = () => {
 };
 
 export default AIRecommendations;
+
 

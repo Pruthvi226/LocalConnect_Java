@@ -69,12 +69,28 @@ public class User {
     @Column(name = "cancellation_rate")
     private Double cancellationRate = 0.0;
 
+    @Column(name = "average_rating")
+    private Double averageRating = 0.0;
+
+    @Column(name = "total_reviews")
+    private Integer totalReviews = 0;
+
     // Safety System (Phase 2)
     @Column(name = "emergency_contact_name")
     private String emergencyContactName;
 
     @Column(name = "emergency_contact_phone")
     private String emergencyContactPhone;
+
+    // Provider Payout Details
+    @Column(name = "bank_account_number")
+    private String bankAccountNumber;
+
+    @Column(name = "ifsc_code")
+    private String ifscCode;
+
+    @Column(name = "upi_id")
+    private String upiId;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private Set<Booking> bookings = new HashSet<>();
@@ -293,6 +309,22 @@ public class User {
         this.cancellationRate = cancellationRate;
     }
 
+    public Double getAverageRating() {
+        return averageRating;
+    }
+
+    public void setAverageRating(Double averageRating) {
+        this.averageRating = averageRating;
+    }
+
+    public Integer getTotalReviews() {
+        return totalReviews;
+    }
+
+    public void setTotalReviews(Integer totalReviews) {
+        this.totalReviews = totalReviews;
+    }
+
     public String getEmergencyContactName() {
         return emergencyContactName;
     }
@@ -307,6 +339,30 @@ public class User {
 
     public void setEmergencyContactPhone(String emergencyContactPhone) {
         this.emergencyContactPhone = emergencyContactPhone;
+    }
+
+    public String getBankAccountNumber() {
+        return bankAccountNumber;
+    }
+
+    public void setBankAccountNumber(String bankAccountNumber) {
+        this.bankAccountNumber = bankAccountNumber;
+    }
+
+    public String getIfscCode() {
+        return ifscCode;
+    }
+
+    public void setIfscCode(String ifscCode) {
+        this.ifscCode = ifscCode;
+    }
+
+    public String getUpiId() {
+        return upiId;
+    }
+
+    public void setUpiId(String upiId) {
+        this.upiId = upiId;
     }
 
     public enum Role {

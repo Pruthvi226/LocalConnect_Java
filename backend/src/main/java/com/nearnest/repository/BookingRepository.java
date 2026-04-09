@@ -19,6 +19,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     
     List<Booking> findByServiceId(Long serviceId);
     List<Booking> findByService_Provider_Id(Long providerId);
+    Page<Booking> findByService_Provider_Id(Long providerId, Pageable pageable);
     List<Booking> findByStatus(BookingStatus status);
     
     @Query("SELECT b FROM Booking b WHERE b.service.id = :serviceId AND " +
@@ -37,4 +38,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         @Param("startDate") LocalDateTime startDate,
         @Param("endDate") LocalDateTime endDate
     );
+
+    // Aggregate count for provider dashboard (avoids full list load into memory)
+    long countByService_Provider_IdAndStatus(Long providerId, BookingStatus status);
 }
+

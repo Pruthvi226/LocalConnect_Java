@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -33,7 +34,7 @@ public class NotificationController {
 
     @PutMapping("/{id}/read")
     public ResponseEntity<Map<String, String>> markAsRead(@PathVariable Long id) {
-        notificationService.markAsRead(id);
+        notificationService.markAsRead(Objects.requireNonNull(id));
         return ResponseEntity.ok(Map.of("message", "Notification marked as read"));
     }
 

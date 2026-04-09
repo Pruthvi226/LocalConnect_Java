@@ -8,7 +8,7 @@ const mapContainerStyle = {
   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
 };
 
-// Default center (San Francisco roughly, if no user location is provided)
+// Default center (San Francisco roughly, if no Customer location is provided)
 const defaultCenter = {
   lat: 37.7749,
   lng: -122.4194
@@ -221,3 +221,4 @@ const MapSearch = ({ services, center = defaultCenter, onMarkerClick }) => {
 };
 
 export default React.memo(MapSearch);
+

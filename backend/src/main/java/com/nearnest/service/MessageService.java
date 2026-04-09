@@ -11,8 +11,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.lang.NonNull;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -37,7 +39,7 @@ public class MessageService {
     private SimpMessagingTemplate messagingTemplate;
 
     @Transactional
-    public MessageDto sendMessage(Long receiverId, String content, Long bookingId) {
+    public MessageDto sendMessage(@NonNull Long receiverId, @NonNull String content, Long bookingId) {
         User sender = authService.getCurrentUser();
         if (sender == null) {
             throw new RuntimeException("User not authenticated");
@@ -60,7 +62,7 @@ public class MessageService {
 
         // Create notification for receiver (also pushes via STOMP)
         notificationService.createNotification(
-                receiver,
+                Objects.requireNonNull(receiver),
                 "New Message",
                 "You received a message from " + sender.getFullName(),
                 com.nearnest.model.Notification.NotificationType.MESSAGE_RECEIVED,
@@ -69,12 +71,12 @@ public class MessageService {
 
         // Realtime push to receiver
         MessageDto dto = MessageDto.fromEntity(savedMessage);
-        messagingTemplate.convertAndSendToUser(receiver.getUsername(), "/queue/messages", dto);
+        messagingTemplate.convertAndSendToUser(Objects.requireNonNull(receiver.getUsername()), "/queue/messages", Objects.requireNonNull(dto));
 
         return dto;
     }
 
-    public List<MessageDto> getConversation(Long otherUserId) {
+    public List<MessageDto> getConversation(@NonNull Long otherUserId) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
@@ -100,7 +102,7 @@ public class MessageService {
     }
 
     @Transactional
-    public void markAsRead(Long messageId) {
+    public void markAsRead(@NonNull Long messageId) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
@@ -128,6 +130,29 @@ public class MessageService {
         for (Message message : unreadMessages) {
             message.setIsRead(true);
         }
-        messageRepository.saveAll(unreadMessages);
+        messageRepository.saveAll(Objects.requireNonNull(unreadMessages));
+    }
+
+    public List<MessageDto> getMessagesByBooking(@NonNull Long bookingId) {
+        User currentUser = authService.getCurrentUser();
+        if (currentUser == null) {
+            throw new RuntimeException("User not authenticated");
+        }
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // Security check: Only customer or provider can see messages for this booking
+        boolean isCustomer = booking.getUser().getId().equals(currentUser.getId());
+        boolean isProvider = booking.getService().getProvider().getId().equals(currentUser.getId());
+        boolean isAdmin = currentUser.getRole() == User.Role.ADMIN;
+
+        if (!isCustomer && !isProvider && !isAdmin) {
+            throw new RuntimeException("Access denied: You are not part of this booking");
+        }
+
+        return messageRepository.findByBookingIdOrderByCreatedAtAsc(bookingId).stream()
+                .map(MessageDto::fromEntity)
+                .collect(Collectors.toList());
     }
 }

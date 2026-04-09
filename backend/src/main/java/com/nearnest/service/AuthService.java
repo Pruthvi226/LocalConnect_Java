@@ -35,11 +35,27 @@ public class AuthService {
     @Transactional
     public UserDto register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new BadRequestException("Username is already taken!");
+            throw new BadRequestException("Username '" + request.getUsername() + "' is already taken.");
         }
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BadRequestException("Email is already in use!");
+            throw new BadRequestException("An account with email '" + request.getEmail() + "' already exists.");
+        }
+
+        // Phone uniqueness check (only if phone is provided)
+        if (request.getPhone() != null && !request.getPhone().isBlank()) {
+            if (userRepository.existsByPhone(request.getPhone())) {
+                throw new BadRequestException("An account with this phone number already exists.");
+            }
+        }
+
+        // Password strength validation: min 8 chars, must contain at least 1 digit
+        String password = request.getPassword();
+        if (password == null || password.length() < 8) {
+            throw new BadRequestException("Password must be at least 8 characters long.");
+        }
+        if (!password.matches(".*\\d.*")) {
+            throw new BadRequestException("Password must contain at least one number.");
         }
 
         User user = new User();
@@ -50,11 +66,20 @@ public class AuthService {
         user.setPhone(request.getPhone());
         user.setAddress(request.getAddress());
         
-        if (request.getRole() != null && !request.getRole().isEmpty()) {
-            try {
-                user.setRole(User.Role.valueOf(request.getRole().toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                user.setRole(User.Role.USER);
+        if (request.getRole() != null && !request.getRole().isBlank()) {
+            String roleInput = request.getRole().trim().toUpperCase();
+            switch (roleInput) {
+                case "PROVIDER":
+                    user.setRole(User.Role.PROVIDER);
+                    break;
+                case "ADMIN":
+                    user.setRole(User.Role.ADMIN);
+                    break;
+                case "CUSTOMER":
+                case "USER":
+                default:
+                    user.setRole(User.Role.USER);
+                    break;
             }
         } else {
             user.setRole(User.Role.USER);
@@ -83,11 +108,12 @@ public class AuthService {
         
         User user = userRepository.findByUsername(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found after successful authentication"));
+                
+        String roleStr = (user.getRole() != null) ? user.getRole().name() : User.Role.USER.name();
 
-        String jwt = jwtUtils.generateToken(userDetails.getUsername(), user.getRole().name());
+        String jwt = jwtUtils.generateToken(userDetails.getUsername(), roleStr);
 
-        return new JwtResponse(jwt, user.getId(), user.getUsername(), user.getEmail(), 
-                user.getRole().name());
+        return new JwtResponse(jwt, user.getId(), user.getUsername(), user.getEmail(), roleStr);
     }
 
     public UserDto getCurrentUserDto() {

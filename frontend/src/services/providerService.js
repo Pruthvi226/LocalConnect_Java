@@ -11,8 +11,8 @@ export const providerService = {
     return response.data;
   },
 
-  getProviderBookings: async () => {
-    const response = await api.get('/provider/bookings');
+  getProviderBookings: async (params = {}) => {
+    const response = await api.get('/provider/bookings', { params });
     return response.data;
   },
 
@@ -27,4 +27,15 @@ export const providerService = {
     });
     return response.data;
   },
+
+  getProviderTransactions: async (params = {}) => {
+    const response = await api.get('/provider/transactions', { params });
+    return response.data;
+  },
+
+  confirmOfflinePayment: async (paymentId) => {
+    const response = await api.post(`/payments/offline/confirm/${paymentId}`);
+    return response.data;
+  },
 };
+
