@@ -11,6 +11,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "services", indexes = {
+    @Index(name = "idx_service_title", columnList = "title"),
     @Index(name = "idx_service_location", columnList = "location"),
     @Index(name = "idx_service_category", columnList = "category"),
     @Index(name = "idx_service_rating", columnList = "average_rating")
@@ -47,6 +48,13 @@ public class Service {
     @Column(name = "image_url")
     private String imageUrl;
 
+    // Phase 2: Portfolio Proof-of-Work
+    @Column(name = "before_image_url")
+    private String beforeImageUrl;
+
+    @Column(name = "after_image_url")
+    private String afterImageUrl;
+
     @Column(name = "average_rating")
     private Double averageRating = 0.0;
 
@@ -61,6 +69,10 @@ public class Service {
 
     @Column(name = "platform_fee")
     private Double platformFee = 50.0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "booking_type")
+    private BookingType bookingType = BookingType.REQUEST;
 
     @Transient
     private Double distanceKm;
@@ -165,6 +177,22 @@ public class Service {
         this.imageUrl = imageUrl;
     }
 
+    public String getBeforeImageUrl() {
+        return beforeImageUrl;
+    }
+
+    public void setBeforeImageUrl(String beforeImageUrl) {
+        this.beforeImageUrl = beforeImageUrl;
+    }
+
+    public String getAfterImageUrl() {
+        return afterImageUrl;
+    }
+
+    public void setAfterImageUrl(String afterImageUrl) {
+        this.afterImageUrl = afterImageUrl;
+    }
+
     public Double getAverageRating() {
         return averageRating;
     }
@@ -251,5 +279,17 @@ public class Service {
 
     public void setReviews(Set<Review> reviews) {
         this.reviews = reviews;
+    }
+
+    public BookingType getBookingType() {
+        return bookingType;
+    }
+
+    public void setBookingType(BookingType bookingType) {
+        this.bookingType = bookingType;
+    }
+
+    public enum BookingType {
+        INSTANT, REQUEST
     }
 }

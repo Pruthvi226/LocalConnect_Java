@@ -1,26 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Lock, ArrowRight, Eye, EyeOff, ShieldCheck, Sparkles } from 'lucide-react';
+import { User, Lock, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const LoginUser = () => {
-  const [Username, setUsername] = useState(() => localStorage.getItem('remembered_User_Username') || '');
+  const [Username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(!!localStorage.getItem('remembered_User_Username'));
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [formKey, setFormKey] = useState(0);
+   const { login, redirectPath, setRedirectPath } = useAuth();
   const navigate = useNavigate();
 
+  // Randomized names to evade autofill
+  const fieldNames = React.useMemo(() => ({
+    user: `cust_user_${Math.random().toString(36).substring(7)}`,
+    pass: `cust_pass_${Math.random().toString(36).substring(7)}`
+  }), []); // Removed formKey dependency to avoid lint warning as it's not used inside the memo logic directly for values
+
   useEffect(() => {
-    // Explicitly reset the password field on mount
+    // Force form reset on mount
+    setUsername('');
     setPassword('');
-    // If not remembering me, ensure username is blank
-    if (!localStorage.getItem('remembered_User_Username')) {
-      setUsername('');
-    }
+    setFormKey(prev => prev + 1);
   }, []);
 
   const handleSubmit = async (e) => {
@@ -34,7 +38,7 @@ const LoginUser = () => {
 
     setLoading(true);
     try {
-      const userData = await login(Username, password, rememberMe);
+      const userData = await login(Username, password, false);
 
       // Role validation: only USER/ADMIN accounts can access the customer dashboard
       const role = userData?.role || localStorage.getItem('userRole');
@@ -46,13 +50,15 @@ const LoginUser = () => {
         return;
       }
       
-      if (rememberMe) {
-        localStorage.setItem('remembered_User_Username', Username);
-      } else {
-        localStorage.removeItem('remembered_User_Username');
-      }
+      // No credential persistence per security audit requirements
+      localStorage.removeItem('remembered_User_Username');
 
-      navigate('/customer/dashboard'); 
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get('redirect');
+      const target = redirect || redirectPath || '/customer/dashboard';
+      
+      setRedirectPath(null); // Clear after use
+      navigate(target); 
     } catch (err) {
       setError(err.response?.data?.error || 'Authentication failed. Please verify credentials.');
     } finally {
@@ -106,7 +112,11 @@ const LoginUser = () => {
             )}
           </AnimatePresence>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form key={formKey} onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
+            {/* Hidden dummy fields to deflect autofill */}
+            <input type="text" name="prevent_autofill" style={{ display: 'none' }} tabIndex="-1" aria-hidden="true" />
+            <input type="password" name="password_fake" style={{ display: 'none' }} tabIndex="-1" aria-hidden="true" />
+
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Username</label>
               <div className="relative group">
@@ -115,6 +125,7 @@ const LoginUser = () => {
                 </div>
                 <input
                   type="text"
+                  name={fieldNames.user}
                   value={Username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-slate-50 border-2 border-transparent focus:border-primary-500/20 focus:bg-white rounded-2xl py-4 pl-12 pr-5 text-slate-900 font-bold outline-none transition-all placeholder:text-slate-300 shadow-sm"
@@ -138,6 +149,7 @@ const LoginUser = () => {
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
+                  name={fieldNames.pass}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-50 border-2 border-transparent focus:border-primary-500/20 focus:bg-white rounded-2xl py-4 pl-12 pr-12 text-slate-900 font-bold outline-none transition-all placeholder:text-slate-300 shadow-sm"
@@ -155,18 +167,9 @@ const LoginUser = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between px-1">
+            <div className="flex items-center justify-between px-1 opacity-0 pointer-events-none h-0">
               <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="sr-only"
-                  />
-                  <div className={`w-10 h-6 rounded-full transition-colors duration-200 ease-in-out ${rememberMe ? 'bg-primary-600' : 'bg-slate-200'}`}></div>
-                  <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out ${rememberMe ? 'translate-x-4' : 'translate-x-0'} shadow-sm`}></div>
-                </div>
+                <input type="checkbox" className="sr-only" checked={false} readOnly />
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-600 transition-colors">Remember Me</span>
               </label>
             </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, MapPin, X, Navigation } from 'lucide-react';
+import { MapPin, X, Navigation } from 'lucide-react';
 import { loadGoogleMaps } from '../utils/googleMapsLoader';
 
 const LocationSearch = ({ onLocationSelect, placeholder = "Search city or area...", className = "" }) => {

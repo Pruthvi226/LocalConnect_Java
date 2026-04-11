@@ -2,23 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  MapPin, Star, Heart, User, 
+  MapPin, Star, Heart, 
   MessageSquare, ShieldCheck, 
-  Calendar, Clock, ArrowLeft,
+  Calendar, ArrowLeft,
   Share2, ShieldAlert, CheckCircle2,
-  Zap, ChevronRight, Info, AlertCircle
+  Zap, ChevronRight, Info, AlertCircle,
+  Sparkles, Camera, X, ExternalLink
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import { serviceService } from '../services/serviceService';
 import { bookingService } from '../services/bookingService';
 import { reviewService } from '../services/reviewService';
+import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import GoogleMap from '../components/GoogleMap';
+import { useGuestGuard } from '../hooks/useGuestGuard';
+import GuestModal from '../components/GuestModal';
+import { toast } from 'react-toastify';
 
 const ServiceDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   
   const [service, setService] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -35,15 +40,22 @@ const ServiceDetails = () => {
   
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
+  const [reviewImages, setReviewImages] = useState([]);
+  const [isEligible, setIsEligible] = useState(false);
+  const [eligibleBookingId, setEligibleBookingId] = useState(null);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [zoomImage, setZoomImage] = useState(null);
 
-  useEffect(() => {
-    loadService();
-    loadReviews();
-    window.scrollTo(0, 0);
-  }, [id]);
+  const { 
+    checkAccess, 
+    isModalOpen, 
+    setIsModalOpen, 
+    triggerAction: guestAction,
+    getLoginRedirect,
+    getRegisterRedirect
+  } = useGuestGuard();
 
-  const loadService = async () => {
+  const loadService = React.useCallback(async () => {
     try {
       setLoading(true);
       const data = await serviceService.getById(id);
@@ -54,23 +66,51 @@ const ServiceDetails = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const loadReviews = async () => {
+  const loadReviews = React.useCallback(async () => {
     try {
       const data = await reviewService.getByService(id);
       setReviews(data);
+      
+      if (isAuthenticated) {
+        const eligibility = await reviewService.checkEligibility(id);
+        setIsEligible(eligibility.eligible);
+        setEligibleBookingId(eligibility.bookingId);
+      }
     } catch (err) { console.error(err); }
-  };
+  }, [id, isAuthenticated]);
+
+  useEffect(() => {
+    loadService();
+    loadReviews();
+    window.scrollTo(0, 0);
+  }, [loadReviews, loadService]);
 
   const handleBooking = async () => {
-    if (!isAuthenticated) return navigate('/login/customer');
+    console.log("Book Now clicked"); // MUST log
+    
+    if (!isAuthenticated) {
+      console.log("User not authenticated, redirecting to login...");
+      navigate(`/login?redirect=booking&serviceId=${id}`);
+      return;
+    }
     
     setBookingLoading(true);
     setBookingSuccess(false);
     try {
+      console.log("Sending booking payload to API...", {
+        serviceId: id,
+        bookingDate,
+        bookingNotes,
+        isEmergency,
+        problemImageUrl,
+        paymentMethod
+      });
       const result = await bookingService.create(id, new Date(bookingDate), bookingNotes, isEmergency, problemImageUrl, paymentMethod);
+      console.log("Booking success:", result);
       setBookingSuccess(true);
+      toast.success("Booking Confirmed 🎉");
       
       const bookingId = result.id;
       
@@ -82,25 +122,59 @@ const ServiceDetails = () => {
         }
       }, 2000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Booking failed. Professional might be unavailable.');
+      console.error("Booking failed:", err);
+      const errMsg = err.response?.data?.error || err.response?.data?.message || "Booking failed";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setBookingLoading(false);
     }
   };
 
+  const handleImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    setReviewImages(prev => [...prev, ...files]);
+  };
+
+  const removeImage = (index) => {
+    setReviewImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
     if (!isAuthenticated) return navigate('/login/customer');
-    if (!reviewComment.trim()) return;
+    if (!reviewComment.trim()) return alert('Please write a comment.');
+    if (!eligibleBookingId) return alert('No eligible booking found for review.');
 
     setReviewLoading(true);
     try {
-      await reviewService.create(id, reviewRating, reviewComment);
+      let uploadedUrls = [];
+      if (reviewImages.length > 0) {
+        const formData = new FormData();
+        reviewImages.forEach(file => {
+          formData.append('files', file);
+        });
+        
+        const uploadRes = await api.post('/upload/images', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        uploadedUrls = uploadRes.data.urls;
+      }
+
+      await reviewService.create(eligibleBookingId, reviewRating, reviewComment, uploadedUrls);
+      
       setReviewComment('');
+      setReviewImages([]);
+      setReviewRating(5);
+      setIsEligible(false); // Hide form after success
+      
       loadReviews();
       loadService();
+      
+      alert('Review submitted successfully! Thank you for your feedback.');
     } catch (err) {
-      setError('Failed to submit review.');
+      console.error(err);
+      setError('Failed to submit review. ' + (err.response?.data?.message || ''));
     } finally {
       setReviewLoading(false);
     }
@@ -198,7 +272,7 @@ const ServiceDetails = () => {
                   </button>
                </div>
 
-               <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-premium">
+                <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-premium">
                   <h3 className="text-xl font-black text-slate-800 mb-4 flex items-center gap-2">
                      <Info className="w-5 h-5 text-primary-500" />
                      About the Service
@@ -206,7 +280,58 @@ const ServiceDetails = () => {
                   <p className="text-lg text-slate-600 font-medium leading-relaxed">
                     {service.description || 'No detailed description provided by this expert.'}
                   </p>
-               </div>
+                </div>
+
+                {/* Proof of Work - Side by Side Gallery */}
+                {service.beforeImageUrl && service.afterImageUrl && (
+                <div className="bg-white rounded-[2.5rem] p-8 lg:p-10 border border-slate-100 shadow-premium">
+                  <div className="flex justify-between items-end mb-8">
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                         <Sparkles className="w-6 h-6 text-amber-500" />
+                         Results Gallery
+                      </h3>
+                      <p className="text-slate-400 font-bold text-sm tracking-tight mt-1">Real proof from past neighborhood jobs</p>
+                    </div>
+                    <div className="hidden sm:flex flex-col items-end">
+                      <div className="bg-green-100 text-green-700 text-[10px] font-black px-3 py-1 rounded-full border border-green-200 uppercase tracking-widest mb-1">Authentic</div>
+                      <span className="text-[10px] font-bold text-slate-400">Captured by Specialists</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="space-y-4">
+                        <div className="relative group/gallery aspect-[4/3] rounded-[2rem] overflow-hidden border-2 border-slate-50">
+                           <img 
+                             src={service.beforeImageUrl} 
+                             className="w-full h-full object-cover transition-transform duration-700 group-hover/gallery:scale-110" 
+                             alt="Before service" 
+                           />
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity"></div>
+                           <div className="absolute bottom-4 left-4">
+                              <span className="bg-red-500 text-white text-[10px] font-black px-3 py-1.5 rounded-xl border border-red-400 shadow-lg uppercase tracking-widest">Before Service</span>
+                           </div>
+                        </div>
+                     </div>
+                     <div className="space-y-4">
+                        <div className="relative group/gallery aspect-[4/3] rounded-[2rem] overflow-hidden border-4 border-primary-100 shadow-xl shadow-primary-500/10">
+                           <img 
+                             src={service.afterImageUrl} 
+                             className="w-full h-full object-cover transition-transform duration-700 group-hover/gallery:scale-110" 
+                             alt="After service" 
+                           />
+                           <div className="absolute inset-0 bg-gradient-to-t from-primary-900/60 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity"></div>
+                           <div className="absolute bottom-4 left-4">
+                              <span className="bg-primary-600 text-white text-[10px] font-black px-3 py-1.5 rounded-xl border border-primary-400 shadow-lg uppercase tracking-widest flex items-center gap-1">
+                                 <CheckCircle2 className="w-3.5 h-3.5" />
+                                 After Service
+                              </span>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+                </div>
+                )}
             </section>
 
             {/* Provider Spotlight */}
@@ -226,7 +351,7 @@ const ServiceDetails = () => {
                         {service.provider?.trustScore != null && (
                           <span className="bg-green-500 text-white text-sm px-3 py-1 rounded-xl font-bold border border-green-400 shadow-sm flex items-center gap-1">
                              <ShieldCheck className="w-4 h-4" />
-                             Trust Score: {service.provider.trustScore}
+                             Trusted Pro – {service.provider.trustScore}% Reliability
                           </span>
                         )}
                      </h3>
@@ -237,8 +362,9 @@ const ServiceDetails = () => {
                      <div className="flex flex-wrap justify-center md:justify-start gap-4">
                         <button 
                           onClick={() => {
-                            if (isAuthenticated) navigate('/messages', { state: { partnerId: service.provider?.id, partnerName: service.provider?.fullName } });
-                            else navigate('/login/customer');
+                            if (checkAccess('chat with this expert')) {
+                              navigate('/messages', { state: { partnerId: service.provider?.id, partnerName: service.provider?.fullName } });
+                            }
                           }}
                           className="bg-white text-primary-700 font-black py-3 px-8 rounded-2xl hover:bg-primary-50 transition-all flex items-center gap-2"
                         >
@@ -269,81 +395,221 @@ const ServiceDetails = () => {
 
             {/* Reviews Section */}
             <section id="reviews">
-               <div className="flex justify-between items-center mb-10 px-2">
-                  <h2 className="text-3xl font-black text-slate-800 tracking-tight">Expert Reviews</h2>
-                  <div className="flex items-center gap-2">
-                     <span className="text-3xl font-black text-primary-600">{service.averageRating?.toFixed(1) || '0.0'}</span>
-                     <Star className="w-6 h-6 fill-amber-400 text-amber-400" />
+               <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
+                  <div>
+                    <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Customer <span className="text-primary-600">Reviews</span></h2>
+                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">Feedback from your neighborhood</p>
+                  </div>
+                  <div className="flex items-center gap-6 bg-white px-8 py-5 rounded-[2rem] border border-slate-100 shadow-premium">
+                     <div className="text-center">
+                        <p className="text-4xl font-black text-slate-900">{service.averageRating?.toFixed(1) || '0.0'}</p>
+                        <div className="flex gap-0.5 mt-1">
+                           {[1,2,3,4,5].map(s => (
+                             <Star key={s} className={`w-3 h-3 ${service.averageRating >= s ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
+                           ))}
+                        </div>
+                     </div>
+                     <div className="w-px h-12 bg-slate-100"></div>
+                     <div>
+                        <p className="text-sm font-black text-slate-900">{service.totalReviews || 0}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Ratings</p>
+                     </div>
                   </div>
                </div>
 
-               <div className="space-y-6 mb-12">
+               <div className="space-y-8 mb-16">
                   {reviews.length === 0 ? (
-                    <div className="p-12 text-center bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200">
-                       <Star className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                       <p className="text-lg font-bold text-slate-400">No reviews yet. Be the first!</p>
+                    <div className="p-20 text-center bg-white rounded-[3rem] border border-slate-100 shadow-premium">
+                       <div className="w-20 h-20 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6">
+                          <MessageSquare className="w-10 h-10 text-slate-200" />
+                       </div>
+                       <h3 className="text-2xl font-black text-slate-800 mb-2">No reviews yet</h3>
+                       <p className="text-slate-500 font-medium">Be the first to share your experience with this expert!</p>
                     </div>
                   ) : (
                     reviews.map(review => (
-                      <div key={review.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-premium group">
-                         <div className="flex justify-between items-start mb-6">
+                      <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        key={review.id} 
+                        className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-premium hover:border-primary-100 transition-colors"
+                      >
+                         <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-6">
                             <div className="flex items-center gap-4">
-                               <div className="w-12 h-12 bg-slate-100 rounded-2xl overflow-hidden shadow-sm">
-                                  <img src={`https://i.pravatar.cc/100?u=${review.Customer?.id || 'Customer'}`} alt="" />
-                               </div>
-                               <div>
-                                  <p className="font-black text-slate-800">{review.Customer?.fullName || 'ProxiSense Customer'}</p>
-                                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{dayjs(review.createdAt).format('MMMM D, YYYY')}</p>
-                               </div>
+                               <div className="w-14 h-14 bg-slate-100 rounded-2xl overflow-hidden shadow-inner border border-slate-200/50">
+                                  <img src={`https://i.pravatar.cc/100?u=${review.customerId || 'Customer'}`} alt="" className="w-full h-full object-cover" />
+                                </div>
+                                <div>
+                                   <div className="flex items-center gap-2 mb-0.5">
+                                      <p className="font-black text-slate-900 text-lg">{review.customerName || 'Verified Professional'}</p>
+                                      <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2 py-0.5 rounded-lg border border-emerald-100 flex items-center gap-1 uppercase tracking-widest">
+                                         <ShieldCheck className="w-2.5 h-2.5" /> Verified Purchase
+                                      </span>
+                                   </div>
+                                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">
+                                      Expertly served on {dayjs(review.createdAt).format('MMMM D, YYYY')}
+                                   </p>
+                                </div>
                             </div>
-                            <div className="flex gap-1 px-3 py-1.5 bg-amber-50 rounded-xl">
-                               <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                               <span className="font-black text-xs text-amber-700">{review.rating}</span>
+                            <div className="flex gap-1.5 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
+                               {[1,2,3,4,5].map(s => (
+                                 <Star key={s} className={`w-4 h-4 ${review.rating >= s ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
+                               ))}
                             </div>
                          </div>
-                         <p className="text-slate-600 font-medium leading-relaxed italic">
-                           "{review.comment}"
+                         
+                         <p className="text-slate-600 text-lg font-medium leading-relaxed mb-8">
+                           {review.comment || "Quality service as expected. Highly recommended expert."}
                          </p>
-                      </div>
+
+                         {review.imageUrls && review.imageUrls.length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4">
+                               {review.imageUrls.map((url, idx) => (
+                                 <div 
+                                   key={idx} 
+                                   onClick={() => setZoomImage(url)}
+                                   className="aspect-square rounded-2xl overflow-hidden border border-slate-100 cursor-pointer hover:opacity-90 transition-opacity"
+                                 >
+                                    <img src={url} className="w-full h-full object-cover" alt="Review proof" />
+                                 </div>
+                               ))}
+                            </div>
+                         )}
+                      </motion.div>
                     ))
                   )}
                </div>
 
-               {/* Add Review */}
-               {isAuthenticated && (
-                 <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-2xl">
-                    <h3 className="text-2xl font-black mb-6">Review your Experience</h3>
-                    <form onSubmit={handleReviewSubmit} className="space-y-6">
-                       <div className="flex gap-4 mb-4">
-                          {[1,2,3,4,5].map(star => (
-                            <button 
-                              key={star}
-                              type="button"
-                              onClick={() => setReviewRating(star)}
-                              className="group transition-transform active:scale-125"
-                            >
-                              <Star className={`w-8 h-8 ${reviewRating >= star ? 'fill-amber-400 text-amber-400' : 'text-slate-700 hover:text-white'}`} />
-                            </button>
-                          ))}
+               {/* Amazon-Style Review Form Overlay */}
+               {isAuthenticated && isEligible && (
+                 <motion.div 
+                   initial={{ scale: 0.95, opacity: 0 }}
+                   animate={{ scale: 1, opacity: 1 }}
+                   className="bg-slate-900 rounded-[3rem] p-10 lg:p-14 text-white shadow-3xl relative overflow-hidden"
+                 >
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary-600/20 rounded-full blur-[100px] pointer-events-none"></div>
+                    <div className="relative z-10">
+                       <div className="flex items-center gap-4 mb-8">
+                          <div className="w-14 h-14 bg-white/10 rounded-[1.5rem] flex items-center justify-center backdrop-blur-md">
+                             <Sparkles className="w-8 h-8 text-primary-400" />
+                          </div>
+                          <div>
+                             <h3 className="text-3xl font-black tracking-tight">Rate your Experience</h3>
+                             <p className="text-primary-300 font-bold text-xs uppercase tracking-[0.2em] mt-1">Verified Expert Review</p>
+                          </div>
                        </div>
-                       <textarea 
-                         rows="4"
-                         value={reviewComment}
-                         onChange={(e) => setReviewComment(e.target.value)}
-                         className="w-full bg-white/5 border border-white/10 rounded-3xl p-6 text-white text-lg font-medium focus:outline-none focus:border-primary-500 placeholder:text-slate-600"
-                         placeholder="Share your thoughts on the quality, speed, and reliability..."
-                       />
-                       <button 
-                        type="submit"
-                        disabled={reviewLoading}
-                        className="bg-primary-600 text-white font-black py-4 px-12 rounded-2xl shadow-xl hover:bg-primary-700 transition-all active:scale-95 disabled:opacity-50"
-                       >
-                          {reviewLoading ? 'Sharing...' : 'Publish Review'}
-                       </button>
-                    </form>
-                 </div>
+
+                       <form onSubmit={handleReviewSubmit} className="space-y-8">
+                          <div>
+                             <p className="text-xs font-black uppercase text-slate-400 tracking-widest mb-4">Quality of Execution</p>
+                             <div className="flex gap-3">
+                                {[1,2,3,4,5].map(star => (
+                                  <button 
+                                    key={star}
+                                    type="button"
+                                    onClick={() => setReviewRating(star)}
+                                    className="group transition-transform active:scale-150"
+                                  >
+                                    <Star className={`w-10 h-10 ${reviewRating >= star ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]' : 'text-slate-700 hover:text-white transition-colors'}`} />
+                                  </button>
+                                ))}
+                             </div>
+                          </div>
+
+                          <div className="space-y-4">
+                             <p className="text-xs font-black uppercase text-slate-400 tracking-widest">Share Detailed Story</p>
+                             <textarea 
+                               rows="4"
+                               value={reviewComment}
+                               onChange={(e) => setReviewComment(e.target.value)}
+                               className="w-full bg-white/5 border-2 border-white/10 rounded-[2.5rem] p-8 text-white text-xl font-medium focus:outline-none focus:border-primary-500/50 placeholder:text-slate-700 transition-all"
+                               placeholder="Describe the professionalism, speed, and final result..."
+                             />
+                          </div>
+
+                          <div className="space-y-4">
+                             <div className="flex justify-between items-center">
+                                <p className="text-xs font-black uppercase text-slate-400 tracking-widest">Upload Service Proof <span className="text-slate-600 font-bold lowercase italic tracking-normal">(Multiples allowed)</span></p>
+                                <span className="text-[10px] font-bold text-primary-400">{reviewImages.length} images selected</span>
+                             </div>
+                             
+                             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+                                {reviewImages.map((file, idx) => (
+                                   <div key={idx} className="aspect-square relative group/preview rounded-2xl overflow-hidden border-2 border-white/10">
+                                      <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
+                                      <button 
+                                        type="button" 
+                                        onClick={() => removeImage(idx)}
+                                        className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/preview:opacity-100 transition-opacity shadow-lg"
+                                      >
+                                         <X className="w-4 h-4" />
+                                      </button>
+                                   </div>
+                                ))}
+                                {reviewImages.length < 5 && (
+                                   <label className="aspect-square rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-primary-500/50 transition-all group">
+                                      <input type="file" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
+                                      <Camera className="w-8 h-8 text-slate-600 group-hover:text-primary-400 transition-colors" />
+                                      <span className="text-[10px] font-black text-slate-600 uppercase mt-2 group-hover:text-primary-400">Add Image</span>
+                                   </label>
+                                )}
+                             </div>
+                          </div>
+
+                          <div className="pt-4 flex flex-col sm:flex-row items-center gap-6">
+                             <button 
+                              type="submit"
+                              disabled={reviewLoading}
+                               className="w-full sm:w-auto bg-primary-600 text-white font-black py-5 px-16 rounded-[2rem] shadow-2xl shadow-primary-500/30 hover:bg-primary-700 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-4 text-lg"
+                             >
+                                {reviewLoading ? (
+                                   <><div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div> Publishing...</>
+                                ) : (
+                                   <><CheckCircle2 className="w-6 h-6" /> Publish Official Review</>
+                                )}
+                             </button>
+                             <p className="text-[11px] text-slate-500 font-medium leading-relaxed max-w-xs text-center sm:text-left">
+                                By publishing, you confirm that this is an honest review of the service received. 
+                                Reviews are subject to ProxiSense community guidelines.
+                             </p>
+                          </div>
+                       </form>
+                    </div>
+                 </motion.div>
                )}
             </section>
+
+            {/* Image Zoom Modal */}
+            <AnimatePresence>
+               {zoomImage && (
+                 <motion.div 
+                   initial={{ opacity: 0 }}
+                   animate={{ opacity: 1 }}
+                   exit={{ opacity: 0 }}
+                   onClick={() => setZoomImage(null)}
+                   className="fixed inset-0 z-[200] bg-slate-900/95 backdrop-blur-2xl flex items-center justify-center p-6 md:p-12"
+                 >
+                    <button className="absolute top-10 right-10 w-14 h-14 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all">
+                       <X className="w-8 h-8" />
+                    </button>
+                    <motion.div 
+                      key={zoomImage}
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.9, opacity: 0 }}
+                      className="max-w-7xl max-h-full"
+                    >
+                       <img src={zoomImage} className="w-full h-full object-contain rounded-3xl shadow-3xl" alt="Review proof zoom" />
+                    </motion.div>
+                    <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4">
+                       <a href={zoomImage} target="_blank" rel="noreferrer" className="px-6 py-3 bg-white text-slate-900 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-slate-50 transition-all">
+                          <ExternalLink className="w-4 h-4" /> Open Full Res
+                       </a>
+                    </div>
+                 </motion.div>
+               )}
+            </AnimatePresence>
           </div>
 
           {/* Booking Column */}
@@ -363,14 +629,14 @@ const ServiceDetails = () => {
                    </div>
 
                    <AnimatePresence>
-                      {bookingSuccess && (
+                       {bookingSuccess && (
                         <motion.div 
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
                           className="bg-green-50 text-green-700 p-4 rounded-3xl border border-green-100 mb-6 flex items-center gap-3"
                         >
-                           <CheckCircle2 className="w-6 h-6 flex-shrink-0" />
-                           <p className="text-sm font-bold tracking-tight">Booking Confirmed! You will be notified shortly.</p>
+                           <CheckCircle2 className="w-6 h-6 flex-shrink-0 text-green-500" />
+                           <p className="text-sm font-bold tracking-tight">Booking Confirmed 🎉 You will be notified shortly.</p>
                         </motion.div>
                       )}
                       {error && (
@@ -485,10 +751,10 @@ const ServiceDetails = () => {
 
                    <button 
                     onClick={handleBooking}
-                    disabled={bookingLoading || !service.isAvailable}
-                    className="hidden lg:flex w-full bg-primary-600 hover:bg-primary-700 text-white font-black py-5 rounded-3xl shadow-xl shadow-primary-500/20 active:scale-95 transition-all text-lg items-center justify-center gap-3 disabled:opacity-50"
+                    disabled={bookingLoading}
+                    className="hidden lg:flex w-full bg-gradient-to-r from-primary-600 to-indigo-600 hover:bg-gradient-to-r hover:from-primary-700 hover:to-indigo-700 hover:scale-105 text-white font-black py-5 rounded-3xl shadow-xl shadow-primary-500/30 active:scale-95 transition-all duration-300 text-lg items-center justify-center gap-3 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
                    >
-                     {bookingLoading ? 'Processing...' : (service.isAvailable ? 'Book Now' : 'Join Waitlist')}
+                     {bookingLoading ? 'Booking...' : 'Book Now'}
                      <ChevronRight className="w-5 h-5" />
                    </button>
                    
@@ -523,12 +789,20 @@ const ServiceDetails = () => {
          </div>
          <button 
           onClick={handleBooking}
-          disabled={bookingLoading || !service.isAvailable}
-          className="bg-primary-600 hover:bg-primary-700 text-white font-black py-3.5 px-8 rounded-2xl shadow-xl shadow-primary-500/20 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+          disabled={bookingLoading}
+          className="bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-700 hover:to-indigo-700 text-white font-black py-3.5 px-8 rounded-2xl shadow-xl shadow-primary-500/30 active:scale-95 hover:scale-105 transition-all duration-300 flex items-center justify-center disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
          >
-           {bookingLoading ? 'Processing...' : (service.isAvailable ? 'Book Now' : 'Waitlist')}
+           {bookingLoading ? 'Booking...' : 'Book Now'}
          </button>
       </div>
+
+      <GuestModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        triggerAction={guestAction}
+        onLoginRedirect={getLoginRedirect()}
+        onRegisterRedirect={getRegisterRedirect()}
+      />
     </div>
   );
 };

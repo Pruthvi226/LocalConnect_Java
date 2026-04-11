@@ -5,7 +5,7 @@ import {
   Search, MapPin, Star, Sparkles, 
   SlidersHorizontal, X, ArrowRight,
   Navigation, Zap, Filter, Info,
-  BrainCircuit, Camera, ChevronRight, ShieldCheck
+  BrainCircuit, Camera, ChevronRight
 } from 'lucide-react';
 import ServiceCard from '../components/ServiceCard';
 import { serviceService } from '../services/serviceService';
@@ -26,6 +26,14 @@ const Home = () => {
   const [UserLocation, setUserLocation] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [pagination, setPagination] = useState({ page: 0, size: 9, totalPages: 0, totalElements: 0 });
+  const [sortType, setSortType] = useState('distance');
+  const [isSorting, setIsSorting] = useState(false);
+
+  // Typewriter effect state
+  const placeholders = ["Plumber near me", "AC Repair in Hyderabad", "Electrician under ₹500"];
+  const [placeholderText, setPlaceholderText] = useState('');
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // AI Diagnosis State
   const [showDiagnosis, setShowDiagnosis] = useState(false);
@@ -62,6 +70,55 @@ const Home = () => {
     detectLocation();
   }, []);
 
+  // Typewriter hook
+  useEffect(() => {
+    let timer;
+    const currentFullText = placeholders[placeholderIndex];
+    if (isDeleting) {
+      if (placeholderText === '') {
+        setIsDeleting(false);
+        setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
+        timer = setTimeout(() => {}, 500);
+      } else {
+        timer = setTimeout(() => {
+          setPlaceholderText(currentFullText.substring(0, placeholderText.length - 1));
+        }, 50);
+      }
+    } else {
+      if (placeholderText === currentFullText) {
+        timer = setTimeout(() => {
+          setIsDeleting(true);
+        }, 3000); 
+      } else {
+        timer = setTimeout(() => {
+          setPlaceholderText(currentFullText.substring(0, placeholderText.length + 1));
+        }, Math.random() * 40 + 40); 
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [placeholderText, isDeleting, placeholderIndex]);
+
+  // Sorting hook
+  useEffect(() => {
+    if (services.length === 0) return;
+    setIsSorting(true);
+    const handler = setTimeout(() => {
+      let sorted = [...services];
+      if (sortType === 'distance') {
+        sorted.sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0));
+      } else if (sortType === 'rating') {
+        sorted.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+      } else if (sortType === 'price_low') {
+        sorted.sort((a, b) => (a.price || 0) - (b.price || 0));
+      } else if (sortType === 'price_high') {
+        sorted.sort((a, b) => (b.price || 0) - (a.price || 0));
+      }
+      setFilteredServices(sorted);
+      setIsSorting(false);
+    }, 400); 
+    return () => clearTimeout(handler);
+  }, [services, sortType]);
+
   useEffect(() => {
     const handler = setTimeout(() => {
       loadServices({
@@ -70,20 +127,30 @@ const Home = () => {
         maxDistanceKm: maxDistance,
         UserLat: UserLocation?.latitude,
         UserLng: UserLocation?.longitude,
-        q: searchQuery,
+        search: searchQuery,
         page: pagination.page,
         size: pagination.size
       });
-    }, 500);
+    }, 300);
     return () => clearTimeout(handler);
   }, [selectedCategory, minRating, maxDistance, UserLocation, searchQuery, pagination.page]);
 
   const loadServices = async (filters = {}) => {
     try {
       setLoading(true);
-      const data = await serviceService.getAllPaginated(filters);
+      setError(null);
+      let data;
+      
+      // If we have a text search query, use the explicit search endpoint
+      if (filters.search) {
+        const res = await api.get(`/services/search?q=${encodeURIComponent(filters.search)}&page=${filters.page || 0}&size=${filters.size || 9}`);
+        data = res.data;
+      } else {
+        data = await serviceService.getAllPaginated(filters);
+      }
+
       setServices(data.content || []);
-      setFilteredServices(data.content || []);
+      // filteredServices will be updated by the sorting effect
       setPagination(prev => ({ 
         ...prev, 
         totalPages: data.totalPages || 0,
@@ -118,38 +185,33 @@ const Home = () => {
     } catch (err) { console.error(err); }
   };
 
-  const filterServices = () => {
-    let filtered = [...services];
-    if (searchQuery) {
-      filtered = filtered.filter(s => 
-        s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-    if (selectedCategory) filtered = filtered.filter(s => s.category === selectedCategory);
-    if (minRating) filtered = filtered.filter(s => (s.averageRating || 0) >= minRating);
-    if (maxDistance) filtered = filtered.filter(s => (s.distanceKm || 0) <= maxDistance);
-    
-    setFilteredServices(filtered);
-  };
-
   const resetFilters = () => {
     setSearchQuery('');
     setSelectedCategory('');
     setMinRating(null);
     setMaxDistance(null);
+    setSortType('distance');
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pt-24 pb-20">
+    <div className="min-h-screen bg-gradient-to-b from-[#f8f9ff] to-[#ffffff] pt-24 pb-20 relative overflow-hidden">
+      {/* Background blobs */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-200/20 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+      <div className="absolute top-40 right-1/4 w-80 h-80 bg-indigo-200/20 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+
       <div className="container mx-auto px-4 lg:px-6">
         
-        {/* Search & Discover Header */}
-        <div className="max-w-5xl mx-auto mb-12">
+        {/* Search & Discover Header - Added Framer Motion */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="max-w-5xl mx-auto mb-12"
+        >
            <header className="mb-10 text-center lg:text-left">
               <h1 className="text-4xl lg:text-6xl font-black text-slate-900 tracking-tight mb-4">
-                Find your next <br className="hidden lg:block" />
-                <span className="text-primary-600">Local Expert.</span>
+                <span className="font-medium text-slate-800 tracking-normal">Find your next</span> <br className="hidden lg:block" />
+                <span style={{ backgroundImage: 'linear-gradient(90deg, #5B5FEF, #7C3AED)' }} className="text-transparent bg-clip-text">Local Expert.</span>
               </h1>
               <p className="text-lg text-slate-500 font-medium max-w-2xl">
                 The cleverest way to connect with service professionals in your area. 
@@ -157,114 +219,64 @@ const Home = () => {
               </p>
            </header>
 
-           {/* Smart Search Bar */}
-           <div className="relative group">
-              <div className="absolute inset-0 bg-primary-500/10 blur-[60px] opacity-0 group-focus-within:opacity-100 transition-opacity"></div>
-              <div className="relative glass-card p-2 rounded-[2.5rem] border-white/60 shadow- premium flex flex-col lg:flex-row gap-2">
-                 <div className="flex-1 relative flex items-center">
-                    <Search className="absolute left-6 text-slate-400 w-5 h-5" />
-                    <input
-                      type="text"
-                      placeholder="Search for repair, cleaning, tech..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-transparent pl-14 pr-6 py-5 text-lg font-bold text-slate-800 focus:outline-none placeholder:text-slate-300"
-                    />
-                 </div>
-                 <div className="h-12 w-px bg-slate-100 hidden lg:block self-center"></div>
-                 <div className="flex items-center px-4 lg:w-64">
-                    <MapPin className="text-primary-500 w-5 h-5 mr-3" />
-                    <span className="text-sm font-bold text-slate-500 truncate">
-                      {UserLocation ? 'Broadcasting near you' : 'Detecting area...'}
-                    </span>
-                 </div>
-                 <button 
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`px-8 py-4 rounded-3xl font-black text-sm flex items-center justify-center gap-2 transition-all ${
-                    showFilters ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                 >
-                    <SlidersHorizontal className="w-4 h-4" />
-                    Filters
-                 </button>
-                 <button className="bg-primary-600 hover:bg-primary-700 text-white px-10 py-4 rounded-3xl font-black shadow-xl shadow-primary-500/20 active:scale-95 transition-all">
-                    Search
-                 </button>
-              </div>
+        {/* Premium Search Bar */}
+        <div className="w-full md:w-[70%] max-w-4xl mx-auto mb-16 px-4">
+          <form 
+            onSubmit={(e) => { e.preventDefault(); }} 
+            className="sticky top-20 z-40 relative flex items-center w-full bg-white/70 backdrop-blur-xl border border-indigo-500/20 shadow-[0_8px_30px_rgb(0,0,0,0.06)] rounded-[2rem] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] focus-within:shadow-[0_8px_30px_rgb(0,0,0,0.12)] focus-within:ring-4 focus-within:ring-indigo-500/30"
+          >
+            <div className="pl-6 pr-3 py-4 text-slate-400 flex items-center justify-center">
+              <MapPin className="w-6 h-6 text-primary-500" />
+            </div>
+            <input
+              type="text"
+              className="flex-1 bg-transparent border-none outline-none py-5 px-2 text-slate-700 font-medium placeholder-slate-400 text-lg sm:text-xl w-full"
+              placeholder={placeholderText}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+            />
+            <AnimatePresence>
+              {searchQuery && (
+                <motion.button 
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  type="button" 
+                  onClick={() => setSearchQuery('')}
+                  className="p-2 mr-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </motion.button>
+              )}
+            </AnimatePresence>
+            <div className="pr-3 py-3">
+              <button 
+                type="submit"
+                className="bg-slate-900 hover:bg-slate-800 text-white px-6 sm:px-10 py-3 sm:py-4 rounded-full font-black flex items-center justify-center transition-all active:scale-95 shadow-lg shadow-slate-900/20"
+              >
+                {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin sm:mr-2" /> : <Search className="w-5 h-5 sm:mr-2" />}
+                <span className="hidden sm:block">Search</span>
+              </button>
+            </div>
+          </form>
 
-              {/* Advanced Filter Panel */}
-              <AnimatePresence>
-                {showFilters && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -20, height: 0 }}
-                    animate={{ opacity: 1, y: 0, height: 'auto' }}
-                    exit={{ opacity: 0, y: -20, height: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="mt-4 p-8 bg-white rounded-[2rem] border border-slate-100 shadow-xl grid md:grid-cols-3 gap-8">
-                       <div>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Category Focus</p>
-                          <div className="flex flex-wrap gap-2">
-                             {categories.map(cat => (
-                               <button 
-                                 key={cat}
-                                 onClick={() => setSelectedCategory(selectedCategory === cat ? '' : cat)}
-                                 className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
-                                   selectedCategory === cat ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-50 border-slate-100 text-slate-500 hover:border-primary-200'
-                                 }`}
-                               >
-                                 {cat}
-                               </button>
-                             ))}
-                          </div>
-                       </div>
-                       <div>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Quality Threshold</p>
-                          <div className="flex gap-2">
-                             {[3, 4, 4.5].map(rating => (
-                               <button 
-                                 key={rating}
-                                 onClick={() => setMinRating(minRating === rating ? null : rating)}
-                                 className={`flex-1 py-3 rounded-xl text-xs font-bold border flex flex-col items-center gap-1 transition-all ${
-                                   minRating === rating ? 'bg-amber-500 border-amber-500 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-500'
-                                 }`}
-                               >
-                                 <Star className={`w-4 h-4 ${minRating === rating ? 'fill-white' : 'fill-amber-400 text-amber-400'}`} />
-                                 {rating}+ Stars
-                               </button>
-                             ))}
-                          </div>
-                       </div>
-                       <div>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Maximum Distance</p>
-                          <div className="grid grid-cols-3 gap-2">
-                             {[5, 15, 30].map(dist => (
-                               <button 
-                                 key={dist}
-                                 onClick={() => setMaxDistance(maxDistance === dist ? null : dist)}
-                                 className={`py-3 rounded-xl text-xs font-bold border transition-all ${
-                                   maxDistance === dist ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-500'
-                                 }`}
-                               >
-                                 {dist}km
-                               </button>
-                             ))}
-                          </div>
-                       </div>
-                       <div className="md:col-span-3 pt-4 border-t border-slate-100 flex justify-end gap-3">
-                          <button onClick={resetFilters} className="px-6 py-2 text-sm font-bold text-slate-400 hover:text-slate-600">Clear All</button>
-                          <button onClick={() => setShowFilters(false)} className="bg-slate-900 text-white px-8 py-2 rounded-xl text-sm font-bold">Apply Filters</button>
-                       </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-           </div>
+          {/* Smart Location Badge */}
+          <div className="mt-4 flex justify-center w-full">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-100/50 shadow-sm">
+                <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                <span className="text-xs font-bold text-indigo-700">
+                  {UserLocation ? "Searching near your location 📍" : "Using general marketplace 📍 (Allow location for better results)"}
+                </span>
+            </div>
+          </div>
         </div>
+        </motion.div>
 
         {/* Results Section */}
         <section className="max-w-7xl mx-auto">
-           <div className="flex items-center justify-between mb-8 px-2">
+           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 px-2 gap-4">
               <div className="flex items-center gap-3">
                  <h2 className="text-2xl font-black text-slate-800">
                     {searchQuery ? 'Search Results' : 'Recommended Nearby'}
@@ -272,9 +284,37 @@ const Home = () => {
                  <span className="bg-slate-200 text-slate-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
                    {filteredServices.length} Total
                  </span>
+                 <AnimatePresence>
+                   {isSorting && (
+                     <motion.span 
+                        initial={{ opacity: 0, x: -10 }} 
+                        animate={{ opacity: 1, x: 0 }} 
+                        exit={{ opacity: 0 }}
+                        className="text-xs text-indigo-500 font-bold flex items-center"
+                     >
+                       <div className="w-3 h-3 mr-1.5 border-[1.5px] border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                       Sorting...
+                     </motion.span>
+                   )}
+                 </AnimatePresence>
               </div>
-              <div className="flex items-center gap-2 text-slate-400 text-sm font-bold">
-                 Sort by: <span className="text-primary-600 cursor-pointer">Distance</span>
+              <div className="flex flex-wrap items-center gap-3">
+                 <div className="flex items-center gap-2 text-slate-600 text-sm font-bold bg-white px-3 py-2 rounded-xl shadow-sm border border-slate-100">
+                    <span className="text-slate-400">Sort by:</span>
+                    <select 
+                      value={sortType} 
+                      onChange={(e) => setSortType(e.target.value)}
+                      className="bg-transparent font-bold text-primary-600 outline-none cursor-pointer placeholder-gray-500"
+                    >
+                      <option value="distance">Distance</option>
+                      <option value="rating">Top Rated</option>
+                      <option value="price_low">Price: Low to High</option>
+                      <option value="price_high">Price: High to Low</option>
+                    </select>
+                 </div>
+                 <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm hover:bg-slate-50 transition-colors">
+                    <Filter className="w-4 h-4" /> Filters ⚙️
+                 </button>
               </div>
            </div>
 

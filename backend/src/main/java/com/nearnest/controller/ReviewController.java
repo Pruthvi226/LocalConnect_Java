@@ -22,13 +22,22 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.getServiceReviews(Objects.requireNonNull(serviceId)));
     }
 
+    @GetMapping("/service/{serviceId}/eligible")
+    public ResponseEntity<Map<String, Object>> checkReviewEligibility(@PathVariable(name = "serviceId") Long serviceId) {
+        java.util.Optional<Long> bookingId = reviewService.getEligibleBookingId(serviceId);
+        return ResponseEntity.ok(Map.of(
+            "eligible", bookingId.isPresent(),
+            "bookingId", bookingId.orElse(null)
+        ));
+    }
+
     @PostMapping
     public ResponseEntity<ReviewDto> createReview(
             @RequestParam(name = "bookingId") Long bookingId,
             @RequestParam(name = "rating") Integer rating,
             @RequestParam(name = "comment", required = false) String comment,
-            @RequestParam(name = "tags", required = false) List<String> tags) {
-        return ResponseEntity.ok(reviewService.createReview(Objects.requireNonNull(bookingId), Objects.requireNonNull(rating), comment, tags));
+            @RequestParam(name = "imageUrls", required = false) java.util.List<String> imageUrls) {
+        return ResponseEntity.ok(reviewService.createReview(Objects.requireNonNull(bookingId), Objects.requireNonNull(rating), comment, imageUrls));
     }
 
     @PutMapping("/{id}")

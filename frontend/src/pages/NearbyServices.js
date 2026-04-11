@@ -2,10 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Navigation, Crosshair, 
-  Search, SlidersHorizontal, Star, 
-  Clock, ShieldCheck, ChevronRight,
+  Search, SlidersHorizontal, 
+  ShieldCheck, ChevronRight,
   Maximize2, ArrowUpRight, Zap,
-  AlertCircle, LocateFixed, MapPin
+  AlertCircle, LocateFixed, MapPin, X
 } from 'lucide-react';
 import MapSearch from '../components/MapSearch';
 import ServiceCard from '../components/ServiceCard';
@@ -25,16 +25,25 @@ const NearbyServices = () => {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [categories, setCategories] = useState(['All']);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   
   const scrollRefs = useRef({});
 
-  const categories = ['All', 'Cleaning', 'Plumbing', 'Electrical', 'Tutoring', 'AC Repair', 'Pest Control'];
-
-  useEffect(() => {
-    initGeolocation();
+  const loadCategories = React.useCallback(async () => {
+    try {
+      const data = await serviceService.getCategories();
+      if (Array.isArray(data)) {
+        setCategories(['All', ...data]);
+      }
+    } catch (err) {
+      console.warn('Failed to load categories, using defaults.');
+      setCategories(['All', 'Cleaning', 'Plumbing', 'Electrical', 'Tutoring', 'AC Repair', 'Pest Control']);
+    }
   }, []);
 
-  const initGeolocation = () => {
+  const initGeolocation = React.useCallback(() => {
     if (!navigator.geolocation) {
       setError('Location services not supported in this browser.');
       setLoading(false);
@@ -59,7 +68,12 @@ const NearbyServices = () => {
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  };
+  }, []);
+
+  useEffect(() => {
+    initGeolocation();
+    loadCategories();
+  }, [initGeolocation, loadCategories]);
 
   const handleLocationSelect = (loc) => {
     setUserLocation(loc);
@@ -67,7 +81,7 @@ const NearbyServices = () => {
     fetchNearby(loc, 0);
   };
 
-  const fetchNearby = async (coords, pageNum = 0) => {
+  const fetchNearby = React.useCallback(async (coords, pageNum = 0) => {
     try {
       setLoading(true);
 
@@ -77,6 +91,7 @@ const NearbyServices = () => {
         maxDistanceKm: distanceRange,
         category: activeCategory === 'All' ? '' : activeCategory,
         isAvailableNow: instantMode ? true : undefined,
+        search: lastSearchedQuery,
         page: pageNum,
         size: 10
       };
@@ -96,6 +111,12 @@ const NearbyServices = () => {
     } finally {
       setLoading(false);
     }
+  }, [distanceRange, activeCategory, instantMode, smartMatchMode, lastSearchedQuery]);
+
+  const handleSearchSubmit = (e) => {
+    if (e) e.preventDefault();
+    setLastSearchedQuery(searchQuery);
+    // The useEffect will trigger fetchNearby because lastSearchedQuery changed
   };
 
   useEffect(() => {
@@ -103,7 +124,7 @@ const NearbyServices = () => {
        setPage(0);
        fetchNearby(UserLocation, 0);
     }
-  }, [distanceRange, activeCategory, instantMode, smartMatchMode]);
+  }, [UserLocation, fetchNearby]);
 
   const handleNextPage = () => {
     const nextPage = page + 1;
@@ -147,6 +168,32 @@ const NearbyServices = () => {
 
               {/* Advanced Search & Filter Stack */}
               <div className="space-y-6">
+                 {/* Keyword Search Bar */}
+                 <div className="relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-600 transition-colors">
+                       <Search className="w-5 h-5" />
+                    </div>
+                    <form onSubmit={handleSearchSubmit}>
+                      <input 
+                        type="text"
+                        placeholder="Search services (e.g. cleaning, plumbing)"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit(e)}
+                        className="w-full bg-slate-50 border border-slate-100 py-4 pl-14 pr-12 rounded-2xl font-bold text-slate-900 focus:outline-none focus:border-primary-500 focus:bg-white transition-all shadow-sm"
+                      />
+                      {searchQuery && (
+                        <button 
+                          type="button"
+                          onClick={() => { setSearchQuery(''); handleSearchSubmit(); }}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full text-slate-400"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </form>
+                 </div>
+
                  <LocationSearch 
                    onLocationSelect={handleLocationSelect} 
                    placeholder={UserLocation?.address || "Search city or area..."}

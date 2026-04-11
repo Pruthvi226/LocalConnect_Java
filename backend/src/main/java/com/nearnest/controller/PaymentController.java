@@ -1,5 +1,6 @@
 package com.nearnest.controller;
 
+import com.nearnest.config.RazorpayConfig;
 import com.nearnest.dto.PaymentDto;
 import com.nearnest.service.PaymentService;
 import com.nearnest.service.StripeService;
@@ -10,7 +11,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.HashMap;
 
+/**
+ * Controller for handling all payment-related transactions.
+ * Supports Razorpay, Stripe, PayPal, and Pay After Service (Offline).
+ */
 @RestController
 @RequestMapping("/api/payments")
 @CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"}, allowCredentials = "true")
@@ -18,14 +24,20 @@ public class PaymentController {
     private final PaymentService paymentService;
     private final StripeService stripeService;
     private final PayPalService payPalService;
+    private final RazorpayConfig razorpayConfig;
 
     @Value("${stripe.publishable-key:}")
     private String stripePublishableKey;
 
-    public PaymentController(PaymentService paymentService, StripeService stripeService, PayPalService payPalService) {
+    public PaymentController(
+            PaymentService paymentService, 
+            StripeService stripeService, 
+            PayPalService payPalService,
+            RazorpayConfig razorpayConfig) {
         this.paymentService = paymentService;
         this.stripeService = stripeService;
         this.payPalService = payPalService;
+        this.razorpayConfig = razorpayConfig;
     }
 
 
@@ -109,12 +121,12 @@ public class PaymentController {
      */
     @GetMapping("/config")
     public ResponseEntity<Map<String, Object>> getPaymentConfig() {
-        boolean razorpayEnabled = paymentService.isRazorpayConfigured();
-        Map<String, Object> config = new java.util.HashMap<>();
+        boolean razorpayEnabled = razorpayConfig.isConfigured();
+        Map<String, Object> config = new HashMap<>();
         config.put("razorpayEnabled", razorpayEnabled);
         if (razorpayEnabled) {
             // Only expose the public key ID (never the secret)
-            config.put("razorpayKeyId", System.getenv("RAZORPAY_KEY_ID"));
+            config.put("razorpayKeyId", razorpayConfig.getKeyId());
         } else {
             config.put("message", "Online payment currently unavailable. Please use 'Pay After Service'.");
         }

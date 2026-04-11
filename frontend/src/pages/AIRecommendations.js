@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+const API_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:8080/api').replace('/api', '');
 
 const AIRecommendations = () => {
   const { user } = useAuth();

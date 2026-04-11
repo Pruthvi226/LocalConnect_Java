@@ -33,7 +33,7 @@ export const bookingService = {
       problemImageUrl: problemImageUrl || '',
       paymentMethod: paymentMethod || 'ONLINE'
     };
-    const response = await api.post('/bookings/create', payload);
+    const response = await api.post('/bookings', payload);
     return response.data;
   },
 

@@ -23,5 +23,9 @@ export const notificationService = {
   markAllAsRead: async () => {
     await api.put('/notifications/read-all');
   },
+
+  clearAll: async () => {
+    await api.delete('/notifications/clear');
+  },
 };
 

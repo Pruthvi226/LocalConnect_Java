@@ -1,6 +1,7 @@
 package com.nearnest.service;
 
 import com.nearnest.dto.ServiceDto;
+import com.nearnest.dto.AiServiceDto;
 import com.nearnest.dto.ServiceRequest;
 import com.nearnest.model.Service;
 import com.nearnest.model.User;
@@ -35,12 +36,12 @@ public class ServiceService {
     }
 
     public Page<ServiceDto> searchServices(String category, String location, Double minPrice,
-                                        Double maxPrice, Double minRating, Boolean isAvailableNow, @NonNull Pageable pageable) {
+                                        Double maxPrice, Double minRating, Boolean isAvailableNow, String search, @NonNull Pageable pageable) {
         if (pageable.getSort().isUnsorted()) {
             pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), 
                     org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "provider.trustScore"));
         }
-        return serviceRepository.searchServices(category, location, minPrice, maxPrice, minRating, isAvailableNow, pageable)
+        return serviceRepository.searchServices(category, location, minPrice, maxPrice, minRating, isAvailableNow, search, pageable)
                 .map(this::convertToDto);
     }
 
@@ -50,18 +51,19 @@ public class ServiceService {
                                                      Double maxPrice,
                                                      Double minRating,
                                                      Boolean isAvailableNow,
+                                                     String search,
                                                      Double userLat,
                                                      Double userLng,
                                                      Double maxDistanceKm,
                                                      @NonNull Pageable pageable) {
         // Fallback to regular search when location is not provided
         if (userLat == null || userLng == null) {
-            return searchServices(category, location, minPrice, maxPrice, minRating, isAvailableNow, pageable);
+            return searchServices(category, location, minPrice, maxPrice, minRating, isAvailableNow, search, pageable);
         }
 
         // Fetch a larger set for in-memory distance calculation (Production normally uses Spatial DB)
-        // For this demo, we'll fetch up to 100 nearby items and handle pagination manually or return the sorted list
-        List<Service> base = serviceRepository.searchServices(category, location, minPrice, maxPrice, minRating, isAvailableNow, PageRequest.of(0, 500)).getContent();
+        // For this demo, we'll fetch up to 500 nearby items and handle pagination
+        List<Service> base = serviceRepository.searchServices(category, location, minPrice, maxPrice, minRating, isAvailableNow, search, PageRequest.of(0, 500)).getContent();
 
         // Compute distance using Haversine formula and filter/sort in-memory.
         List<ServiceDto> results = base.stream()
@@ -92,10 +94,12 @@ public class ServiceService {
     }
 
     // Phase 2: Smart Matching Recommendations
-    public Page<ServiceDto> getRecommendations(Double userLat, Double userLng, @NonNull Pageable pageable) {
+    public Page<ServiceDto> getRecommendations(Double userLat, Double userLng, String category, Double maxDistanceKm, Boolean isAvailableNow, @NonNull Pageable pageable) {
         List<Service> base = serviceRepository.findAll();
         
         List<ServiceDto> results = base.stream()
+                .filter(s -> category == null || category.isEmpty() || category.equalsIgnoreCase(s.getCategory()))
+                .filter(s -> isAvailableNow == null || !isAvailableNow || Boolean.TRUE.equals(s.getIsAvailableNow()))
                 .peek(s -> {
                     if (userLat != null && userLng != null && s.getLatitude() != null && s.getLongitude() != null) {
                         s.setDistanceKm(haversineDistanceKm(userLat, userLng, s.getLatitude(), s.getLongitude()));
@@ -103,6 +107,7 @@ public class ServiceService {
                         s.setDistanceKm(10.0); // default simulated distance
                     }
                 })
+                .filter(s -> maxDistanceKm == null || s.getDistanceKm() <= maxDistanceKm)
                 .map(this::convertToDto)
                 .sorted((d1, d2) -> Double.compare(calculateMatchScore(d2), calculateMatchScore(d1))) // Descending
                 .collect(Collectors.toList());
@@ -230,6 +235,12 @@ public class ServiceService {
         }
         return serviceRepository.findByProviderId(currentUser.getId()).stream()
                 .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    public List<AiServiceDto> getAiServiceSummary() {
+        return serviceRepository.findByIsAvailableTrue().stream()
+                .map(AiServiceDto::fromEntity)
                 .collect(Collectors.toList());
     }
 

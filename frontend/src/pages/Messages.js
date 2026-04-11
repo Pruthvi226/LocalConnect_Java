@@ -1,30 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MessageCircle, Send, Search, 
-  MoreVertical, Phone, Video,
+  Phone, Video,
   Paperclip, Smile, Image as ImageIcon,
-  Check, CheckCheck, Clock, ShieldCheck,
-  ChevronLeft, ArrowLeft, Info
+  CheckCheck, Clock, ShieldCheck,
+  ChevronLeft, Info, Sparkles,
+  Zap
 } from 'lucide-react';
 import { messageService } from '../services/messageService';
 import { useAuth } from '../context/AuthContext';
 import { useRealtime } from '../context/RealtimeContext';
+import { motion } from 'framer-motion';
 
 const Messages = () => {
-  const { Customer } = useAuth();
+  const { user } = useAuth();
   const { lastMessage } = useRealtime();
-  const [unread, setUnread] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [, setUnread] = useState([]);
   
   const messagesEndRef = useRef(null);
   const location = useLocation();
@@ -47,7 +47,11 @@ const Messages = () => {
   }, [location.state]);
 
   useEffect(() => {
-    if (selectedUserId) loadConversation(selectedUserId);
+    if (selectedUserId) {
+        loadConversation(selectedUserId);
+        const interval = setInterval(() => loadConversation(selectedUserId), 5000); // 5s chat polling
+        return () => clearInterval(interval);
+    }
   }, [selectedUserId]);
 
   useEffect(() => {
@@ -102,7 +106,7 @@ const Messages = () => {
       
       setConversations(Array.from(partnersMap.values()));
     } catch (err) {
-      setError('Connection failed.');
+      console.error('Connection failed.', err);
     } finally {
       setLoading(false);
     }
@@ -113,26 +117,28 @@ const Messages = () => {
       const data = await messageService.getConversation(UserId);
       setMessages(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError('Failed to load conversation.');
+      console.error('Failed to load conversation.', err);
     }
   };
 
   const handleSend = async () => {
-    if (!newMessage.trim() || !selectedUserId) return;
+    const trimmed = newMessage.trim();
+    if (!trimmed || !selectedUserId) return;
     try {
       setSending(true);
       const bookingIdFromState = location.state?.bookingId || null;
-      const sentMsg = await messageService.send(selectedUserId, newMessage.trim(), bookingIdFromState);
+      const sentMsg = await messageService.send(selectedUserId, trimmed, bookingIdFromState);
       setNewMessage('');
       // Optimistic update
       setMessages(prev => [...prev, {
         id: sentMsg.id || Date.now(),
-        content: newMessage.trim(),
-        sender: { id: Customer.id },
+        content: trimmed,
+        sender: { id: user?.id },
         createdAt: new Date().toISOString()
       }]);
     } catch (err) {
-      setError('Message failed to send.');
+      console.error('Message failed to send.', err);
+      alert('Transmission failure. Please check link stability.');
     } finally {
       setSending(false);
     }
@@ -268,12 +274,12 @@ const Messages = () => {
                         key={m.id || idx}
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        className={`flex ${m.sender?.id === Customer?.id ? 'justify-end' : 'justify-start'} group`}
+                        className={`flex ${m.sender?.id === user?.id ? 'justify-end' : 'justify-start'} group`}
                       >
-                         <div className={`flex flex-col ${m.sender?.id === Customer?.id ? 'items-end' : 'items-start'} max-w-[70%]`}>
+                         <div className={`flex flex-col ${m.sender?.id === user?.id ? 'items-end' : 'items-start'} max-w-[70%]`}>
                             <div
                               className={`px-8 py-5 rounded-[2.5rem] relative group-hover:scale-[1.02] transition-transform ${
-                                m.sender?.id === Customer?.id 
+                                m.sender?.id === user?.id 
                                 ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20 rounded-tr-none' 
                                 : 'bg-white/5 text-slate-300 border border-white/5 rounded-tl-none'
                               }`}
@@ -282,7 +288,7 @@ const Messages = () => {
                             </div>
                             <div className="mt-3 flex items-center gap-3 px-2">
                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                               {m.sender?.id === Customer?.id && (
+                               {m.sender?.id === user?.id && (
                                   <div className="flex text-primary-500">
                                      <CheckCheck className="w-3 h-3" />
                                   </div>
@@ -296,6 +302,25 @@ const Messages = () => {
 
                 {/* Message Input */}
                 <footer className="p-8 border-t border-white/5 relative z-10 bg-slate-900/50 backdrop-blur-xl">
+                   {/* Quick Prompts */}
+                   <div className="flex gap-3 mb-6 overflow-x-auto invisible-scrollbar pb-1">
+                      {[
+                        { text: "Are you available now?", icon: Zap },
+                        { text: "Final quote with parts?", icon: ShieldCheck },
+                        { text: "Can you come earlier?", icon: Clock },
+                        { text: "Send past work samples.", icon: Sparkles }
+                      ].map((prompt, i) => (
+                        <button 
+                          key={i}
+                          onClick={() => setNewMessage(prompt.text)}
+                          className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-white/5 border border-white/5 rounded-full hover:bg-white/10 hover:border-primary-500/50 transition-all text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white group"
+                        >
+                           <prompt.icon className="w-3.5 h-3.5 text-primary-500 group-hover:scale-110 transition-transform" />
+                           {prompt.text}
+                        </button>
+                      ))}
+                   </div>
+
                    <div className="bg-white/2 border border-white/5 rounded-[2.5rem] p-3 flex items-center gap-4 focus-within:border-primary-500 transition-all shadow-2xl">
                       <button className="p-4 bg-white/5 rounded-2xl text-slate-400 hover:bg-white/10 transition-all">
                          <Paperclip className="w-5 h-5" />

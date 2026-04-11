@@ -42,8 +42,10 @@ public class ProviderController {
     }
 
     @GetMapping("/bookings")
-    public ResponseEntity<Page<BookingDto>> getProviderBookings(@PageableDefault(size = 10) Pageable pageable) {
-        return ResponseEntity.ok(dashboardService.getProviderBookings(pageable));
+    public ResponseEntity<Page<BookingDto>> getProviderBookings(
+            @RequestParam(name = "status", required = false) BookingStatus status,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(dashboardService.getProviderBookings(status, pageable));
     }
 
     @PutMapping("/bookings/{id}")
@@ -51,8 +53,11 @@ public class ProviderController {
                                                    @RequestParam(name = "status", required = false) BookingStatus status,
                                                    @RequestParam(name = "notes", required = false) String notes,
                                                    @RequestParam(name = "beforeImageUrl", required = false) String beforeImageUrl,
-                                                   @RequestParam(name = "afterImageUrl", required = false) String afterImageUrl) {
-        return ResponseEntity.ok(bookingService.updateBooking(java.util.Objects.requireNonNull(id), status, notes, beforeImageUrl, afterImageUrl, null, null, null));
+                                                   @RequestParam(name = "afterImageUrl", required = false) String afterImageUrl,
+                                                   @RequestParam(name = "providerLat", required = false) Double providerLat,
+                                                   @RequestParam(name = "providerLng", required = false) Double providerLng,
+                                                   @RequestParam(name = "etaMinutes", required = false) Integer etaMinutes) {
+        return ResponseEntity.ok(bookingService.updateBooking(java.util.Objects.requireNonNull(id), status, notes, beforeImageUrl, afterImageUrl, providerLat, providerLng, etaMinutes));
     }
 
     @GetMapping("/transactions")

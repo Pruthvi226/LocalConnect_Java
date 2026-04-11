@@ -1,13 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadGoogleMaps } from '../utils/googleMapsLoader';
-import { MapPin, Info, Zap, Star, Navigation } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const GoogleMap = ({ 
   latitude, 
   longitude, 
   services = [], 
   activeServiceId = null,
+  providerLocation = null, // { lat, lng }
   onMarkerClick = () => {},
   className = "" 
 }) => {
@@ -16,8 +15,8 @@ const GoogleMap = ({
   const markersRef = useRef({});
   const infoWindowRef = useRef(null);
   const UserMarkerRef = useRef(null);
+  const ProviderMarkerRef = useRef(null);
   const [isMock, setIsMock] = useState(false);
-  const [hoveredService, setHoveredService] = useState(null);
 
   useEffect(() => {
     const initMap = async () => {
@@ -51,19 +50,9 @@ const GoogleMap = ({
     };
 
     initMap();
-  }, []);
+  }, [latitude, longitude]);
 
-  // Logical marker handling for Mock Mode
-  const getMockCoordinates = (service) => {
-    // Convert lat/lng to simple percentage offsets for the 2D SVG map
-    // We normalize based on the Customer's current center
-    const latDiff = (service.latitude - latitude) * 200; // Scaling factor
-    const lngDiff = (service.longitude - longitude) * 200;
-    return {
-      top: `${50 - latDiff}%`,
-      left: `${50 + lngDiff}%`
-    };
-  };
+
 
   // Standard Google Maps logic (same as before)
   useEffect(() => {
@@ -79,8 +68,49 @@ const GoogleMap = ({
           zIndex: 100
         });
     } else UserMarkerRef.current.setPosition(pos);
-    mapInstanceRef.current.panTo(pos);
-  }, [latitude, longitude, isMock]);
+    
+    // Fit bounds if both user and provider are present
+    if (providerLocation?.lat && providerLocation?.lng) {
+      const pPos = { lat: providerLocation.lat, lng: providerLocation.lng };
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend(pos);
+      bounds.extend(pPos);
+      mapInstanceRef.current.fitBounds(bounds);
+    } else {
+      mapInstanceRef.current.panTo(pos);
+    }
+  }, [latitude, longitude, isMock, providerLocation]);
+
+  useEffect(() => {
+    if (isMock || !mapInstanceRef.current || !providerLocation) {
+        if (ProviderMarkerRef.current) ProviderMarkerRef.current.setMap(null);
+        return;
+    }
+    const google = window.google;
+    const pos = { lat: providerLocation.lat, lng: providerLocation.lng };
+    
+    if (!ProviderMarkerRef.current) {
+        ProviderMarkerRef.current = new google.maps.Marker({
+            position: pos,
+            map: mapInstanceRef.current,
+            icon: {
+                path: "M12 2L1 21h22L12 2z", // Navigation Arrow
+                fillColor: "#10B981", // Green-500
+                fillOpacity: 1,
+                strokeColor: "white",
+                strokeWeight: 2,
+                scale: 1,
+                rotation: 0,
+                anchor: new google.maps.Point(12, 12)
+            },
+            title: "Expert on the move",
+            zIndex: 110
+        });
+    } else {
+        ProviderMarkerRef.current.setPosition(pos);
+        ProviderMarkerRef.current.setMap(mapInstanceRef.current);
+    }
+  }, [providerLocation, isMock]);
 
   useEffect(() => {
     if (isMock || !mapInstanceRef.current || !services) return;
@@ -119,7 +149,7 @@ const GoogleMap = ({
         google.maps.event.removeListener(listener);
       });
     }
-  }, [services, isMock, latitude, longitude]);
+  }, [services, isMock, latitude, longitude, onMarkerClick]);
 
   useEffect(() => {
     if (isMock || !activeServiceId || !markersRef.current[activeServiceId]) return;
@@ -133,7 +163,7 @@ const GoogleMap = ({
        infoWindowRef.current.setContent(createInfoWindowContent(service));
        infoWindowRef.current.open(mapInstanceRef.current, activeMarker);
     }
-  }, [activeServiceId, isMock]);
+  }, [activeServiceId, isMock, services]);
 
   if (isMock) {
     return (
@@ -153,7 +183,7 @@ const createInfoWindowContent = (service) => `
   <div style="padding: 12px; min-width: 180px; font-family: Inter, sans-serif;">
     <p style="margin: 0 0 4px; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #6366f1; letter-spacing: 0.05em;">${service.category}</p>
     <h4 style="margin: 0 0 8px; font-size: 14px; font-weight: 900; color: #1e293b;">${service.title}</h4>
-    <div style="display: flex; justify-content: justify-between; align-items: center;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
        <span style="font-weight: 900; color: #1e293b; font-size: 14px;">₹${service.price}</span>
        <span style="margin-left: auto; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 4px;">⭐ ${service.averageRating.toFixed(1)}</span>
     </div>

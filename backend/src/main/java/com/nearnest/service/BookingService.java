@@ -13,6 +13,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.lang.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,6 +27,8 @@ import java.math.BigDecimal;
 
 @org.springframework.stereotype.Service
 public class BookingService {
+    private static final Logger log = LoggerFactory.getLogger(BookingService.class);
+
     @Autowired
     BookingRepository bookingRepository;
 
@@ -56,11 +60,17 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
     
-    public Page<BookingDto> getUserBookingsPaginated(@NonNull Pageable pageable) {
+    public Page<BookingDto> getUserBookingsPaginated(BookingStatus status, @NonNull Pageable pageable) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
         }
+        
+        if (status != null) {
+            return bookingRepository.findByUserIdAndStatus(currentUser.getId(), status, pageable)
+                    .map(this::convertToDto);
+        }
+        
         return bookingRepository.findByUserId(currentUser.getId(), pageable).map(this::convertToDto);
     }
 
@@ -74,87 +84,118 @@ public class BookingService {
 
     @Transactional
     public BookingDto createBooking(@NonNull Long serviceId, LocalDateTime bookingDate, String notes, Boolean isEmergency, String problemImageUrl, String paymentMethod) {
-        User currentUser = authService.getCurrentUser();
-        if (currentUser == null) {
-            throw new RuntimeException("User not authenticated");
-        }
-
-        Service service = serviceRepository.findById(serviceId)
-                .orElseThrow(() -> new RuntimeException("Service not found"));
-
-        if (!Boolean.TRUE.equals(service.getIsAvailable())) {
-            throw new RuntimeException("Service is not available");
-        }
-
-        // Check for conflicting bookings (within 1 hour window)
-        LocalDateTime startTime = bookingDate.minusHours(1);
-        LocalDateTime endTime = bookingDate.plusHours(1);
-        List<Booking> conflictingBookings = bookingRepository.findConflictingBookings(
-                serviceId, startTime, endTime);
-
-        if (!conflictingBookings.isEmpty()) {
-            throw new RuntimeException("This time slot is already booked");
-        }
-
-        Booking booking = new Booking();
-        booking.setUser(currentUser);
-        booking.setService(service);
-        booking.setBookingDate(bookingDate);
+        log.info("Starting createBooking request: serviceId={}, bookingDate={}, method={}", serviceId, bookingDate, paymentMethod);
         
-        // If OFFLINE, confirm immediately as per user requirement
-        if ("OFFLINE".equalsIgnoreCase(paymentMethod)) {
-            booking.setStatus(BookingStatus.CONFIRMED);
-        } else {
-            booking.setStatus(BookingStatus.PENDING_PAYMENT);
-        }
-
-        booking.setNotes(notes);
-        booking.setIsEmergency(isEmergency != null ? isEmergency : false);
-        booking.setProblemImageUrl(problemImageUrl);
-
-        // Snapshot pricing with Dynamic Surge
-        Double basePrice = service.getPrice().doubleValue();
-        if (Boolean.TRUE.equals(isEmergency)) {
-            basePrice = basePrice * 1.5; // 50% Emergency Surge
-            // Round to 2 decimal places
-            basePrice = Math.round(basePrice * 100.0) / 100.0;
-        }
-        Double platformFee = service.getPlatformFee() != null ? service.getPlatformFee() : 50.0;
-        booking.setBasePrice(basePrice);
-        booking.setPlatformFee(platformFee);
-        booking.setTotalPrice(Math.round((basePrice + platformFee) * 100.0) / 100.0);
-
-        Booking savedBooking = bookingRepository.save(booking);
-
-        // Create initial payment record ONLY for ONLINE bookings.
-        // OFFLINE bookings: payment is created when provider confirms cash via /payments/offline/confirm
-        if (!"OFFLINE".equalsIgnoreCase(paymentMethod)) {
-            Payment payment = new Payment();
-            payment.setBooking(savedBooking);
-            payment.setAmount(BigDecimal.valueOf(savedBooking.getTotalPrice()));
-            payment.setPaymentMethod(paymentMethod != null ? paymentMethod.toUpperCase() : "ONLINE");
-            payment.setStatus(Payment.PaymentStatus.PENDING);
-            paymentRepository.save(payment);
-        }
-
-        // Notify provider (realtime via NotificationService)
-        notificationService.createNotification(
-                Objects.requireNonNull(service.getProvider()),
-                "New Booking",
-                "New booking #" + savedBooking.getId() + " for " + service.getTitle(),
-                Notification.NotificationType.BOOKING_CREATED,
-                savedBooking.getId()
-        );
-
-        // Send email notification
         try {
-            emailService.sendBookingConfirmation(currentUser.getEmail(), savedBooking);
-        } catch (Exception e) {
-            // Log error but don't fail the booking
-            System.err.println("Failed to send email: " + e.getMessage());
-        }
+            User currentUser = authService.getCurrentUser();
+            if (currentUser == null) {
+                log.error("Booking failure: User not authenticated");
+                throw new RuntimeException("User not authenticated");
+            }
 
-        return convertToDto(savedBooking);
+            Service service = serviceRepository.findById(serviceId)
+                    .orElseThrow(() -> {
+                        log.error("Booking failure: Service id {} not found", serviceId);
+                        return new RuntimeException("Service not found");
+                    });
+
+            // Phase 1: Robust Validation
+            if (service.getProvider() == null) {
+                log.error("Booking failure: Service {} has no provider assigned", serviceId);
+                throw new RuntimeException("This service has no assigned provider and cannot be booked currently.");
+            }
+
+            if (!Boolean.TRUE.equals(service.getIsAvailable())) {
+                log.error("Booking failure: Service {} is marked as unavailable", serviceId);
+                throw new RuntimeException("Service is not available");
+            }
+
+            // Check for conflicting bookings (within 1 hour window)
+            LocalDateTime startTime = bookingDate.minusHours(1);
+            LocalDateTime endTime = bookingDate.plusHours(1);
+            List<Booking> conflictingBookings = bookingRepository.findConflictingBookings(
+                    serviceId, startTime, endTime);
+
+            if (!conflictingBookings.isEmpty()) {
+                log.warn("Booking conflict detected for service {} at {}", serviceId, bookingDate);
+                throw new RuntimeException("This time slot is already booked");
+            }
+
+            Booking booking = new Booking();
+            booking.setUser(currentUser);
+            booking.setService(service);
+            booking.setBookingDate(bookingDate);
+            
+            // If OFFLINE, confirm immediately as per user requirement
+            if ("OFFLINE".equalsIgnoreCase(paymentMethod)) {
+                booking.setStatus(BookingStatus.CONFIRMED);
+            } else {
+                booking.setStatus(BookingStatus.PENDING_PAYMENT);
+            }
+
+            booking.setNotes(notes);
+            booking.setIsEmergency(isEmergency != null ? isEmergency : false);
+            booking.setProblemImageUrl(problemImageUrl);
+
+            // Snapshot pricing with Dynamic Surge
+            Double basePrice = service.getPrice().doubleValue();
+            if (Boolean.TRUE.equals(isEmergency)) {
+                basePrice = basePrice * 1.5; // 50% Emergency Surge
+                // Round to 2 decimal places
+                basePrice = Math.round(basePrice * 100.0) / 100.0;
+            }
+            Double platformFee = service.getPlatformFee() != null ? service.getPlatformFee() : 50.0;
+            booking.setBasePrice(basePrice);
+            booking.setPlatformFee(platformFee);
+            booking.setTotalPrice(Math.round((basePrice + platformFee) * 100.0) / 100.0);
+
+            log.info("Saving booking record for user {} - Total: ₹{}", currentUser.getId(), booking.getTotalPrice());
+            Booking savedBooking = bookingRepository.save(booking);
+
+            // Create initial payment record ONLY for ONLINE bookings.
+            if (!"OFFLINE".equalsIgnoreCase(paymentMethod)) {
+                Payment payment = new Payment();
+                payment.setBooking(savedBooking);
+                payment.setAmount(BigDecimal.valueOf(savedBooking.getTotalPrice()));
+                payment.setPaymentMethod(paymentMethod != null ? paymentMethod.toUpperCase() : "ONLINE");
+                payment.setStatus(Payment.PaymentStatus.PENDING);
+                paymentRepository.save(payment);
+            }
+
+            // Notify provider (realtime via NotificationService)
+            // Wrap in try-catch to ensure notification failures do NOT break the booking process
+            try {
+                User provider = service.getProvider();
+                if (provider != null) {
+                    log.info("Sending notification to provider {} for booking #{}", provider.getId(), savedBooking.getId());
+                    notificationService.createNotification(
+                            provider,
+                            "New Booking Request",
+                            "New booking #" + savedBooking.getId() + " for " + service.getTitle(),
+                            Notification.NotificationType.BOOKING_CREATED,
+                            savedBooking.getId()
+                    );
+                }
+            } catch (Exception e) {
+                // Log the error but allow the booking to complete
+                log.error("Internal Notification Error (Swallowed): {}", e.getMessage());
+            }
+
+            // Send email notification
+            try {
+                emailService.sendBookingConfirmation(currentUser.getEmail(), savedBooking);
+            } catch (Exception e) {
+                // Log error but don't fail the booking
+                log.error("Internal Email Error (Swallowed): {}", e.getMessage());
+            }
+
+            log.info("Booking flow completed successfully for #{}", savedBooking.getId());
+            return convertToDto(savedBooking);
+            
+        } catch (Exception e) {
+            log.error("CRITICAL BOOKING FAIL: serviceId={}, error={}", serviceId, e.getMessage(), e);
+            throw (e instanceof RuntimeException) ? (RuntimeException)e : new RuntimeException("Booking failed: " + e.getMessage());
+        }
     }
 
     @Transactional
@@ -214,6 +255,10 @@ public class BookingService {
             booking.setEtaMinutes(etaMinutes);
         }
 
+        if (status != null && status == BookingStatus.ACCEPTED) {
+            booking.setAcceptedAt(LocalDateTime.now());
+        }
+
         Booking saved = bookingRepository.save(booking);
 
         // Booking lifecycle notifications (realtime via NotificationService)
@@ -260,6 +305,61 @@ public class BookingService {
             }
             
             notificationService.createNotification(Objects.requireNonNull(customer), title, message, type, saved.getId());
+        }
+        return convertToDto(saved);
+    }
+
+    @Transactional
+    public BookingDto completeBooking(@NonNull Long id, String paymentStatus) {
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        User currentUser = authService.getCurrentUser();
+        if (currentUser == null) {
+            throw new RuntimeException("User not authenticated");
+        }
+
+        // Only provider or admin can complete
+        boolean isProvider = currentUser.getId().equals(booking.getService().getProvider().getId());
+        boolean isAdmin = currentUser.getRole() == User.Role.ADMIN;
+
+        if (!isProvider && !isAdmin) {
+            throw new RuntimeException("Permission denied. Only the service provider can mark this as complete.");
+        }
+
+        booking.setStatus(BookingStatus.COMPLETED);
+        
+        // Handle Payment Update
+        Payment payment = booking.getPayment();
+        if (payment != null) {
+            if ("PAID".equalsIgnoreCase(paymentStatus)) {
+                payment.setStatus(Payment.PaymentStatus.COMPLETED);
+                payment.setPaymentDate(LocalDateTime.now());
+            } else {
+                payment.setStatus(Payment.PaymentStatus.PENDING);
+            }
+            paymentRepository.save(payment);
+        }
+
+        Booking saved = bookingRepository.save(booking);
+
+        // Notify customer
+        User customer = booking.getUser();
+        if (customer != null) {
+            notificationService.createNotification(
+                    customer,
+                    "Service Completed",
+                    "Your booking #" + id + " for " + booking.getService().getTitle() + " has been marked as completed.",
+                    Notification.NotificationType.BOOKING_COMPLETED,
+                    id
+            );
+        }
+
+        if (booking.getService() != null && booking.getService().getProvider() != null) {
+            Long providerId = booking.getService().getProvider().getId();
+            if (providerId != null) {
+                userService.recalculateTrustScore(providerId);
+            }
         }
 
         return convertToDto(saved);

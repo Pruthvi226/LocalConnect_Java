@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Briefcase, Mail, Lock, Phone, MapPin, ArrowRight, Eye, EyeOff, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Briefcase, Mail, Lock, Phone, MapPin, ArrowRight, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const RegisterProvider = () => {
@@ -17,12 +17,34 @@ const RegisterProvider = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [formKey, setFormKey] = useState(0);
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  // Randomized names to evade autofill
+  const fieldNames = React.useMemo(() => ({
+    fullName: `prov_reg_fn_${Math.random().toString(36).substring(7)}`,
+    username: `prov_reg_un_${Math.random().toString(36).substring(7)}`,
+    email: `prov_reg_em_${Math.random().toString(36).substring(7)}`,
+    password: `prov_reg_pw_${Math.random().toString(36).substring(7)}`,
+    phone: `prov_reg_ph_${Math.random().toString(36).substring(7)}`,
+    address: `prov_reg_ad_${Math.random().toString(36).substring(7)}`
+  }), []);
+
+  React.useEffect(() => {
+    // Force form reset on mount
+    setFormData({
+      username: '',
+      email: '',
+      password: '',
+      fullName: '',
+      phone: '',
+      address: '',
+    });
+    setFormKey(prev => prev + 1);
+  }, []);
+
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -136,7 +158,11 @@ const RegisterProvider = () => {
             )}
           </AnimatePresence>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form key={formKey} onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
+            {/* Hidden dummy fields to deflect autofill */}
+            <input type="text" name="prevent_autofill" style={{ display: 'none' }} tabIndex="-1" aria-hidden="true" />
+            <input type="password" name="password_fake" style={{ display: 'none' }} tabIndex="-1" aria-hidden="true" />
+
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-1">
                 <label className={labelClasses}>Business Name</label>
@@ -146,12 +172,13 @@ const RegisterProvider = () => {
                   </div>
                   <input
                     type="text"
-                    name="fullName"
+                    name={fieldNames.fullName}
                     value={formData.fullName}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                     className={inputClasses}
                     placeholder="ABC Pro Services"
                     required
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -164,12 +191,13 @@ const RegisterProvider = () => {
                   </div>
                   <input
                     type="text"
-                    name="username"
+                    name={fieldNames.username}
                     value={formData.username}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                     className={inputClasses}
                     placeholder="provider_expert_01"
                     required
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -184,12 +212,13 @@ const RegisterProvider = () => {
                   </div>
                   <input
                     type="email"
-                    name="email"
+                    name={fieldNames.email}
                     value={formData.email}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className={inputClasses}
                     placeholder="contact@abcpro.com"
                     required
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -202,12 +231,13 @@ const RegisterProvider = () => {
                   </div>
                   <input
                     type={showPassword ? "text" : "password"}
-                    name="password"
+                    name={fieldNames.password}
                     value={formData.password}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className={inputClasses}
                     placeholder="••••••••"
                     required
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -229,12 +259,13 @@ const RegisterProvider = () => {
                   </div>
                   <input
                     type="tel"
-                    name="phone"
+                    name={fieldNames.phone}
                     value={formData.phone}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className={inputClasses}
                     placeholder="+1 (555) 000-0000"
                     required
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -247,12 +278,13 @@ const RegisterProvider = () => {
                   </div>
                   <input
                     type="text"
-                    name="address"
+                    name={fieldNames.address}
                     value={formData.address}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     className={inputClasses}
                     placeholder="456 Enterprise Way"
                     required
+                    autoComplete="off"
                   />
                 </div>
               </div>

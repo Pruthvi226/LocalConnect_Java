@@ -14,6 +14,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(!authService.isAuthenticated());
+  const [redirectPath, setRedirectPath] = useState(null);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -58,6 +59,9 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    setUser,
+    redirectPath,
+    setRedirectPath,
     isAuthenticated: !!user,
     loading,
   };

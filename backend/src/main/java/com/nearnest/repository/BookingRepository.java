@@ -21,6 +21,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByService_Provider_Id(Long providerId);
     Page<Booking> findByService_Provider_Id(Long providerId, Pageable pageable);
     List<Booking> findByStatus(BookingStatus status);
+    Page<Booking> findByService_Provider_IdAndStatus(Long providerId, BookingStatus status, Pageable pageable);
+    Page<Booking> findByUserIdAndStatus(Long userId, BookingStatus status, Pageable pageable);
+    
+    java.util.Optional<Booking> findFirstByServiceIdAndUserIdAndStatusInOrderByCreatedAtDesc(
+        Long serviceId, Long userId, java.util.Collection<BookingStatus> statuses);
     
     @Query("SELECT b FROM Booking b WHERE b.service.id = :serviceId AND " +
            "b.bookingDate BETWEEN :startTime AND :endTime AND " +

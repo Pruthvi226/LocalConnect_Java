@@ -1,6 +1,7 @@
 package com.nearnest.controller;
 
 import com.nearnest.dto.ServiceDto;
+import com.nearnest.dto.AiServiceDto;
 import com.nearnest.dto.ServiceRequest;
 import com.nearnest.service.ServiceService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,7 @@ public class ServiceController {
             @RequestParam(name = "maxPrice", required = false) Double maxPrice,
             @RequestParam(name = "minRating", required = false) Double minRating,
             @RequestParam(name = "isAvailableNow", required = false) Boolean isAvailableNow,
+            @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "userLat", required = false) Double userLat,
             @RequestParam(name = "userLng", required = false) Double userLng,
             @RequestParam(name = "maxDistanceKm", required = false) Double maxDistanceKm,
@@ -37,16 +39,21 @@ public class ServiceController {
         
         Page<ServiceDto> services;
         boolean hasFilter = category != null || location != null || minPrice != null ||
-                maxPrice != null || minRating != null || isAvailableNow != null;
+                maxPrice != null || minRating != null || isAvailableNow != null || search != null;
 
         if (hasFilter || userLat != null || userLng != null || maxDistanceKm != null) {
             services = serviceService.searchServicesWithLocation(
-                    category, location, minPrice, maxPrice, minRating, isAvailableNow, userLat, userLng, maxDistanceKm, Objects.requireNonNull(pageable));
+                    category, location, minPrice, maxPrice, minRating, isAvailableNow, search, userLat, userLng, maxDistanceKm, Objects.requireNonNull(pageable));
         } else {
             services = serviceService.getAllServices(Objects.requireNonNull(pageable));
         }
         
         return ResponseEntity.ok(services);
+    }
+
+    @GetMapping("/ai/search")
+    public ResponseEntity<List<AiServiceDto>> getAiSummary() {
+        return ResponseEntity.ok(serviceService.getAiServiceSummary());
     }
 
     @GetMapping("/search")
@@ -58,8 +65,11 @@ public class ServiceController {
     public ResponseEntity<Page<ServiceDto>> getRecommendations(
             @RequestParam(name = "userLat", required = false) Double userLat,
             @RequestParam(name = "userLng", required = false) Double userLng,
+            @RequestParam(name = "category", required = false) String category,
+            @RequestParam(name = "maxDistanceKm", required = false) Double maxDistanceKm,
+            @RequestParam(name = "isAvailableNow", required = false) Boolean isAvailableNow,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ResponseEntity.ok(serviceService.getRecommendations(userLat, userLng, Objects.requireNonNull(pageable)));
+        return ResponseEntity.ok(serviceService.getRecommendations(userLat, userLng, category, maxDistanceKm, isAvailableNow, Objects.requireNonNull(pageable)));
     }
 
     @GetMapping("/categories")

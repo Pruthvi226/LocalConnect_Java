@@ -9,36 +9,26 @@ import {
 } from 'lucide-react';
 import { bookingService } from '../services/bookingService';
 import { useAuth } from '../context/AuthContext';
+import { useCallback } from 'react';
+import EmptyState from '../components/common/EmptyState';
 
-const STATUS_LABELS = {
-  ALL: 'All',
-  PENDING_PAYMENT: 'Payment Pending',
-  CONFIRMED: 'Confirmed',
-  ACCEPTED: 'Accepted',
-  IN_PROGRESS: 'In Progress',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
-};
+
 
 const MyBookings = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('ALL');
   const [pagination, setPagination] = useState({ page: 0, size: 10, totalPages: 0 });
   const [cancelModal, setCancelModal] = useState({ open: false, bookingId: null });
   const [reviewModal, setReviewModal] = useState({ open: false, booking: null, rating: 5, comment: '', loading: false });
+  const [activeTab, setActiveTab] = useState('active'); // 'active', 'completed', 'cancelled'
   
   
-  const { user } = useAuth();
+  useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchBookings();
-  }, [pagination.page, filterStatus]);
-
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -51,7 +41,13 @@ const MyBookings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, pagination.size]);
+
+  useEffect(() => {
+    fetchBookings();
+    const interval = setInterval(fetchBookings, 5000); // 5s booking status sync
+    return () => clearInterval(interval);
+  }, [pagination.page, activeTab, fetchBookings]);
 
   const handleCancelClick = (id) => {
     setCancelModal({ open: true, bookingId: id });
@@ -126,8 +122,14 @@ const MyBookings = () => {
     const matchesSearch = 
       (b.serviceTitle || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
       (b.providerName || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'ALL' || b.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    
+    if (!matchesSearch) return false;
+
+    if (activeTab === 'completed') return b.status === 'COMPLETED';
+    if (activeTab === 'cancelled') return b.status === 'CANCELLED';
+    
+    // Active Tab: Everything else that is not completed or cancelled
+    return !['COMPLETED', 'CANCELLED'].includes(b.status);
   });
 
   const getStatusConfig = (status) => {
@@ -186,22 +188,26 @@ const MyBookings = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
               <input 
                 type="text" 
-                placeholder="Search bookings..."
+                placeholder="Search by service or specialist..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="bg-white border-2 border-slate-100 rounded-2xl py-3 pl-11 pr-5 text-sm font-bold text-slate-800 focus:border-primary-500/30 outline-none w-full md:w-64 transition-all shadow-sm shadow-slate-100"
               />
             </div>
-            <div className="flex items-center bg-white border-2 border-slate-100 rounded-2xl p-1.5 shadow-sm flex-wrap gap-1">
-               {['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED'].map(s => (
+            <div className="flex items-center bg-white border-2 border-slate-100 rounded-2xl p-1.5 shadow-sm">
+               {[
+                 { id: 'active', label: 'Active Jobs' },
+                 { id: 'completed', label: 'Service History' },
+                 { id: 'cancelled', label: 'Cancelled' }
+               ].map(tab => (
                  <button
-                   key={s}
-                   onClick={() => setFilterStatus(s)}
-                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                     filterStatus === s ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'
+                   key={tab.id}
+                   onClick={() => setActiveTab(tab.id)}
+                   className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                     activeTab === tab.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'
                    }`}
                  >
-                   {STATUS_LABELS[s]}
+                   {tab.label}
                  </button>
                ))}
             </div>
@@ -230,27 +236,15 @@ const MyBookings = () => {
             ))}
           </div>
         ) : filteredBookings.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-[3rem] p-20 text-center border-4 border-dashed border-slate-100"
-          >
-            <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 border-2 border-slate-100">
-               <Package className="w-12 h-12 text-slate-200" />
-            </div>
-            <h2 className="text-2xl font-black text-slate-800 mb-2">No Bookings Yet</h2>
-            <p className="text-slate-400 font-bold text-sm mb-10 max-w-sm mx-auto leading-relaxed">
-              {searchTerm || filterStatus !== 'ALL'
-                ? 'No bookings match your search. Try adjusting your filters.'
-                : "You haven't made any bookings yet. Find a service to get started!"}
-            </p>
-            <Link 
-              to="/search" 
-              className="inline-flex items-center gap-3 bg-primary-600 hover:bg-primary-700 text-white font-black py-4 px-10 rounded-2xl shadow-xl shadow-primary-500/20 active:scale-95 transition-all"
-            >
-               Find Services <ChevronRight className="w-5 h-5" />
-            </Link>
-          </motion.div>
+          <EmptyState 
+            icon={Package}
+            title="No Bookings Found"
+            message={searchTerm || activeTab !== 'active'
+              ? `We couldn't find any results for your current filters in ${activeTab} items.`
+              : "You haven't made any bookings yet. Start exploring local experts!"}
+            actionText="Find Services"
+            actionLink="/search"
+          />
         ) : (
           <motion.div 
             variants={containerVariants}

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
+import { MapPin } from 'lucide-react';
 
 const mapContainerStyle = {
   width: '100%',
@@ -9,9 +10,10 @@ const mapContainerStyle = {
 };
 
 // Default center (San Francisco roughly, if no Customer location is provided)
+// Default center: Bengaluru, India (Dynamic hub for services)
 const defaultCenter = {
-  lat: 37.7749,
-  lng: -122.4194
+  lat: 12.9716,
+  lng: 77.5946
 };
 
 const mapOptions = {
@@ -97,7 +99,6 @@ const MapSearch = ({ services, center = defaultCenter, onMarkerClick }) => {
     googleMapsApiKey: apiKey
   });
 
-  const [map, setMap] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
 
   const onLoad = useCallback(function callback(map) {
@@ -111,18 +112,16 @@ const MapSearch = ({ services, center = defaultCenter, onMarkerClick }) => {
       }
     });
 
+
     if (hasValidPoints) {
       map.fitBounds(bounds);
     } else {
       map.setCenter(center);
       map.setZoom(12);
     }
-
-    setMap(map);
   }, [services, center]);
 
   const onUnmount = useCallback(function callback(map) {
-    setMap(null);
   }, []);
 
   if (loadError) {
@@ -133,21 +132,37 @@ const MapSearch = ({ services, center = defaultCenter, onMarkerClick }) => {
     );
   }
 
-  // If no API key is set, we fallback to a mock rendering
+  // If no API key is set, we fallback to a premium mock rendering
   if (!apiKey || apiKey === '') {
     return (
-      <div className="w-full h-[500px] flex items-center justify-center bg-slate-800 rounded-lg text-white border border-slate-700 shadow-inner p-8 text-center">
-        <div>
-          <h3 className="text-xl font-bold mb-2">Live Service Map</h3>
-          <p className="text-slate-400 mb-4">Google Maps API key is not configured in .env. Showing simulated representation.</p>
-          <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
+      <div className="w-full h-[500px] flex flex-col items-center justify-center bg-slate-900 rounded-[2.5rem] text-white border border-white/5 shadow-2xl p-12 text-center relative overflow-hidden group">
+        <div className="absolute inset-0 bg-primary-500/5 animate-pulse"></div>
+        <div className="relative z-10 max-w-md">
+          <div className="w-20 h-20 bg-primary-500/20 rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-primary-500/30">
+            <MapPin className="w-10 h-10 text-primary-400" />
+          </div>
+          <h3 className="text-2xl font-black mb-3 uppercase tracking-tight">Interactive Service Map</h3>
+          <p className="text-slate-500 font-bold mb-10 text-sm leading-relaxed">
+            Configure your <span className="text-slate-300">REACT_APP_GOOGLE_MAPS_API_KEY</span> in the frontend .env to see live provider locations near you.
+          </p>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {services?.slice(0, 4).map((s, idx) => (
-              <div key={s.id || idx} className="bg-slate-700 p-3 rounded-md shadow-md text-left text-sm cursor-pointer hover:bg-slate-600 transition-colors" onClick={() => onMarkerClick?.(s)}>
-                <div className="font-semibold">{s.title.substring(0, 20)}...</div>
-                <div className="text-emerald-400 font-mono mt-1">${s.price}</div>
-              </div>
+              <button 
+                key={s.id || idx} 
+                className="bg-white/5 border border-white/5 p-4 rounded-2xl text-left hover:bg-white/10 hover:border-primary-500/30 transition-all active:scale-95 group/item"
+                onClick={() => onMarkerClick?.(s)}
+              >
+                <div className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-1">Nearby Expert</div>
+                <div className="text-sm font-bold text-white truncate">{s.title || 'Service Title'}</div>
+                <div className="mt-2 text-xs font-black text-slate-400">₹{s.price}<span className="opacity-50">/hr</span></div>
+              </button>
             ))}
-            {services?.length === 0 && <div className="text-slate-500 col-span-2">No services nearby.</div>}
+            {(!services || services.length === 0) && (
+              <div className="col-span-2 text-slate-600 font-black uppercase tracking-[0.2em] text-[10px] py-4">
+                No active services in this region
+              </div>
+            )}
           </div>
         </div>
       </div>

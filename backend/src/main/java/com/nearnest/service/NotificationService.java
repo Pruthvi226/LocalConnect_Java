@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.lang.NonNull;
 
 import java.util.List;
@@ -25,22 +26,33 @@ public class NotificationService {
     @Autowired
     private AuthService authService;
 
-    @Transactional
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(NotificationService.class);
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public NotificationDto createNotification(@NonNull User user, @NonNull String title, @NonNull String message,
                                            @NonNull Notification.NotificationType type, Long relatedId) {
-        Notification notification = new Notification();
-        notification.setUser(user);
-        notification.setTitle(title);
-        notification.setMessage(message);
-        notification.setType(type);
-        notification.setRelatedId(relatedId);
-        notification.setIsRead(false);
+        try {
+            Notification notification = new Notification();
+            notification.setUser(user);
+            notification.setTitle(title);
+            notification.setMessage(message);
+            notification.setType(type);
+            notification.setRelatedId(relatedId);
+            notification.setIsRead(false);
 
-        Notification saved = notificationRepository.save(notification);
-        NotificationDto dto = NotificationDto.fromEntity(saved);
-        // Realtime push to user
-        messagingTemplate.convertAndSendToUser(Objects.requireNonNull(user.getUsername()), "/queue/notifications", Objects.requireNonNull(dto));
-        return dto;
+            Notification saved = notificationRepository.save(notification);
+            NotificationDto dto = NotificationDto.fromEntity(saved);
+            // Realtime push to user
+            String username = user.getUsername();
+            if (username != null) {
+                messagingTemplate.convertAndSendToUser(username, "/queue/notifications", Objects.requireNonNull(dto));
+            }
+            return dto;
+        } catch (Exception e) {
+            log.error("Failed to create/send notification: {}", e.getMessage(), e);
+            // Return a dummy or null DTO instead of throwing exception to prevent transaction rollback
+            return null;
+        }
     }
 
     public List<NotificationDto> getUserNotifications() {
@@ -101,5 +113,14 @@ public class NotificationService {
             notification.setIsRead(true);
         }
         notificationRepository.saveAll(Objects.requireNonNull(unreadNotifications));
+    }
+
+    @Transactional
+    public void clearAllNotifications() {
+        User currentUser = authService.getCurrentUser();
+        if (currentUser == null) {
+            throw new RuntimeException("User not authenticated");
+        }
+        notificationRepository.deleteByUser(currentUser);
     }
 }

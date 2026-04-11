@@ -17,7 +17,6 @@ import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import com.razorpay.Utils;
 import org.json.JSONObject;
-import org.springframework.beans.factory.annotation.Value;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -42,17 +41,19 @@ public class PaymentService {
     @Autowired
     NotificationService notificationService;
 
-    @Value("${razorpay.key-id:}")
-    private String keyId;
-
-    @Value("${razorpay.key-secret:}")
-    private String keySecret;
+    @Autowired
+    private com.nearnest.config.RazorpayConfig razorpayConfig;
 
     private RazorpayClient razorpayClient;
 
     private RazorpayClient getRazorpayClient() throws RazorpayException {
         if (razorpayClient == null) {
-            razorpayClient = new RazorpayClient(keyId, keySecret);
+            String id = razorpayConfig.getKeyId();
+            String secret = razorpayConfig.getKeySecret();
+            if (id == null || id.isEmpty() || secret == null || secret.isEmpty()) {
+                throw new RuntimeException("Razorpay credentials not configured (RAZORPAY_KEY_ID/SECRET)");
+            }
+            razorpayClient = new RazorpayClient(id, secret);
         }
         return razorpayClient;
     }
@@ -116,7 +117,7 @@ public class PaymentService {
     }
 
     public boolean isRazorpayConfigured() {
-        return keyId != null && !keyId.isBlank() && keySecret != null && !keySecret.isBlank();
+        return razorpayConfig.isConfigured();
     }
 
     @Transactional
@@ -160,7 +161,7 @@ public class PaymentService {
             response.put("orderId", razorpayOrderId);
             response.put("amount", String.valueOf(amountInPaise));
             response.put("currency", "INR");
-            response.put("keyId", keyId);
+            response.put("keyId", razorpayConfig.getKeyId());
             return response;
 
         } catch (RazorpayException e) {
@@ -177,7 +178,7 @@ public class PaymentService {
             attributes.put("razorpay_payment_id", paymentId);
             attributes.put("razorpay_signature", signature);
 
-            boolean isValid = Utils.verifyPaymentSignature(attributes, keySecret);
+            boolean isValid = Utils.verifyPaymentSignature(attributes, razorpayConfig.getKeySecret());
 
             if (!isValid) {
                 throw new RuntimeException("Invalid Razorpay signature. Payment verification failed.");

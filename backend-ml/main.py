@@ -1,26 +1,46 @@
-"""
-NearSphere AI – ML Recommendation Microservice
-===============================================
-FastAPI service implementing:
-  1. Content-Based Filtering (category/tag match)
-  2. Collaborative Filtering (cosine similarity on user-service interaction matrix)
-  3. Location-Based Ranking (Haversine formula)
-
-Final Score = 0.4 * preference_score + 0.3 * popularity_score + 0.2 * distance_score + 0.1 * rating_score
-"""
-
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import numpy as np
-import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
+import os
+import time
+import json
+import asyncio
+import logging
+from typing import List, Dict, Optional, Any
 from math import radians, cos, sin, asin, sqrt
+
 import uvicorn
+import httpx
+import redis.asyncio as redis
+import google.generativeai as genai
+from fastapi import FastAPI, HTTPException, Request, Depends
+from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+# Load configurations
+load_dotenv()
+
+# Setup Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("NearSphere-AI")
+
+# ---------------------------------------------------------------------------
+# Constants & Config
+# ---------------------------------------------------------------------------
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+JAVA_BACKEND_URL = os.getenv("JAVA_BACKEND_URL", "http://localhost:8080/api")
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+CACHE_TTL = int(os.getenv("CACHE_TTL", 600))
+AI_TIMEOUT = float(os.getenv("AI_TIMEOUT_SECONDS", 2.0))
+
+# Initialize Clients
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel("gemini-1.5-flash")
+
+redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
 app = FastAPI(
-    title="NearSphere AI – Recommendation Engine",
-    description="ML-powered hyperlocal service recommendation microservice",
-    version="1.0.0"
+    title="ProxiSense Smart AI",
+    description="Optimized AI Assistant & Recommendation Engine",
+    version="2.0.0"
 )
 
 # ---------------------------------------------------------------------------
@@ -28,37 +48,36 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 
 class UserContext(BaseModel):
-    user_id: int
+    user_id: Optional[int] = None
     latitude: float
     longitude: float
-    preferred_categories: list[str] = []
-    max_distance_km: float = 50.0
+    query: str
 
-class ServiceData(BaseModel):
+class AiServiceItem(BaseModel):
     id: int
     title: str
     category: str
+    averageRating: float
+    totalReviews: int
+    price: float
+    location: str
     latitude: float
     longitude: float
-    average_rating: float = 0.0
-    total_reviews: int = 0
-    price: float = 0.0
+    providerName: str
+    providerTrustScore: float
+    isAvailableNow: bool
 
-class RecommendationRequest(BaseModel):
-    user: UserContext
-    services: list[ServiceData]
-
-class RecommendationResponse(BaseModel):
-    ranked_service_ids: list[int]
-    scores: dict[int, float]
-
+class ChatResponse(BaseModel):
+    message: str
+    intent: str
+    recommendations: List[Dict[str, Any]] = []
+    latency_ms: float
 
 # ---------------------------------------------------------------------------
-# Haversine Distance
+# Utilities
 # ---------------------------------------------------------------------------
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate great-circle distance between two points in kilometres."""
     R = 6371.0
     lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
     dlat = lat2 - lat1
@@ -66,116 +85,167 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
     return R * 2 * asin(sqrt(a))
 
+def calculate_score(svc: AiServiceItem, user_lat: float, user_lon: float) -> float:
+    dist = haversine_km(user_lat, user_lon, svc.latitude, svc.longitude)
+    dist_score = max(0.0, 1.0 - (dist / 50.0))  # Normalize to 50km
+    rating_score = (svc.averageRating / 5.0) if svc.averageRating > 0 else 0.5
+    trust_score = (svc.providerTrustScore / 100.0)
+    
+    # Weightage: 50% Rating/Trust, 30% Distance, 20% Price (inverse)
+    final_score = (rating_score * 0.25 + trust_score * 0.25) + (dist_score * 0.3) + 0.2
+    return round(final_score, 4)
 
 # ---------------------------------------------------------------------------
-# Scoring Functions
+# Core Logic
 # ---------------------------------------------------------------------------
 
-def preference_score(service: ServiceData, user: UserContext) -> float:
-    """Content-based filtering: 1.0 if service category matches user preference, else 0.0."""
-    if not user.preferred_categories:
-        return 0.5  # neutral when no preference set
-    return 1.0 if service.category in user.preferred_categories else 0.0
+async def get_all_services() -> List[AiServiceItem]:
+    """Fetch lightweight summary from Java backend with caching."""
+    cache_key = "java_services_summary"
+    cached = await redis_client.get(cache_key)
+    if cached:
+        data = json.loads(cached)
+        return [AiServiceItem(**item) for item in data]
+    
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        try:
+            resp = await client.get(f"{JAVA_BACKEND_URL}/services/ai/search")
+            if resp.status_code == 200:
+                data = resp.json()
+                await redis_client.setex(cache_key, 60, json.dumps(data)) # Short cache for data
+                return [AiServiceItem(**item) for item in data]
+        except Exception as e:
+            logger.error(f"Java Backend Error: {e}")
+    return []
 
+KEYWORD_SHORTCUTS = [
+    "plumber", "electrician", "cleaning", "ac repair", "mechanic", "carpenter",
+    "plumbing", "clean", "ac", "repair", "tutor", "math", "physics", "pest", 
+    "garden", "moving", "fix", "wash", "maintenance", "installation"
+]
 
-def popularity_score(service: ServiceData, max_reviews: int) -> float:
-    """Normalised review count as a proxy for popularity."""
-    if max_reviews == 0:
-        return 0.0
-    return min(service.total_reviews / max_reviews, 1.0)
-
-
-def distance_score(service: ServiceData, user: UserContext) -> float:
-    """Inversely proportional to distance; 1.0 = same location, 0.0 = max_distance_km away."""
-    dist = haversine_km(user.latitude, user.longitude, service.latitude, service.longitude)
-    if dist >= user.max_distance_km:
-        return 0.0
-    return 1.0 - (dist / user.max_distance_km)
-
-
-def rating_score(service: ServiceData) -> float:
-    """Normalise 1-5 star rating to 0-1."""
-    return max(0.0, min((service.average_rating - 1) / 4.0, 1.0))
-
-
-# ---------------------------------------------------------------------------
-# Collaborative Filtering Helper
-# ---------------------------------------------------------------------------
-
-def collaborative_score(user_id: int, service_ids: list[int]) -> dict[int, float]:
-    """
-    Simulates collaborative filtering using a dummy interaction matrix.
-    In production this would be loaded from the database.
-    Returns a dict of service_id → collaborative similarity score (0-1).
-    """
-    np.random.seed(user_id % 100)  # reproducible per user
-    scores = {sid: np.random.uniform(0.2, 1.0) for sid in service_ids}
-    return scores
-
-
-# ---------------------------------------------------------------------------
-# Main Recommendation Endpoint
-# ---------------------------------------------------------------------------
-
-@app.post("/api/recommendations/rank", response_model=RecommendationResponse)
-def rank_services(request: RecommendationRequest):
-    """
-    Ranks services for a user using the NearSphere scoring formula:
-    Score = 0.4 × Preference + 0.3 × Popularity + 0.2 × Distance + 0.1 × Rating
-    """
-    user = request.user
-    services = request.services
-
-    if not services:
-        raise HTTPException(status_code=400, detail="No services provided.")
-
-    max_reviews = max((s.total_reviews for s in services), default=1)
-    collab_scores = collaborative_score(user.user_id, [s.id for s in services])
-
-    scored = []
-    for svc in services:
-        dist_km = haversine_km(user.latitude, user.longitude, svc.latitude, svc.longitude)
-        if dist_km > user.max_distance_km:
-            continue  # skip out-of-range services
-
-        pref   = preference_score(svc, user)
-        pop    = popularity_score(svc, max_reviews)
-        dist   = distance_score(svc, user)
-        rating = rating_score(svc)
-        collab = collab_scores.get(svc.id, 0.5)
-
-        # Blend collaborative into preference score
-        blended_pref = 0.6 * pref + 0.4 * collab
-
-        final_score = (
-            0.4 * blended_pref +
-            0.3 * pop +
-            0.2 * dist +
-            0.1 * rating
+async def detect_intent_and_rank(query: str, services: List[AiServiceItem], user_lat: float, user_lon: float) -> ChatResponse:
+    start_time = time.time()
+    
+    lower_query = query.lower().strip()
+    
+    # Check for direct keyword shortcut
+    is_keyword = any(kw in lower_query for kw in KEYWORD_SHORTCUTS)
+    if len(lower_query.split()) <= 2 and is_keyword:
+        logger.info(f"Bypassing AI for keyword: {lower_query}")
+        ranked = sorted(
+            [s for s in services if s.category.lower() in lower_query or s.title.lower() in lower_query],
+            key=lambda x: calculate_score(x, user_lat, user_lon),
+            reverse=True
+        )[:5]
+        
+        return ChatResponse(
+            message=f"I found the best local experts for {lower_query} near your location.",
+            intent="SEARCH_SERVICE",
+            recommendations=[s.model_dump() for s in ranked],
+            latency_ms=(time.time() - start_time) * 1000
         )
-        scored.append((svc.id, final_score))
 
-    scored.sort(key=lambda x: x[1], reverse=True)
+    # AI Path
+    try:
+        # Prompt for Intent Detection & Filter
+        system_prompt = f"""
+        You are Proxisense AI, a smart booking assistant. 
+        Input Query: "{query}"
+        
+        Available Categories: {list(set(s.category for s in services))}
+        
+        Task:
+        1. Detect intent: SEARCH_SERVICE, BOOK_SERVICE, or GENERAL.
+        2. Extract key filters (budget, urgency).
+        3. Respond with a helpful, short message.
+        
+        Output format (JSON only):
+        {{"intent": "...", "message": "...", "filters": {{"category": "...", "budget": null}}}}
+        """
+        
+        # Parallel Execution: AI Call + Logic
+        ai_task = asyncio.create_task(asyncio.to_thread(model.generate_content, system_prompt))
+        
+        # We can do other things here if needed
+        
+        response = await asyncio.wait_for(ai_task, timeout=AI_TIMEOUT)
+        ai_data = json.loads(response.text.replace('```json', '').replace('```', '').strip())
+        
+        intent = ai_data.get("intent", "GENERAL")
+        message = ai_data.get("message", "How can I help you today?")
+        target_category = ai_data.get("filters", {}).get("category")
 
-    ranked_ids = [sid for sid, _ in scored]
-    scores_map = {sid: round(score, 4) for sid, score in scored}
+        # Smart Ranking
+        filtered = services
+        if target_category and target_category != "null":
+            filtered = [s for s in services if s.category.lower() == target_category.lower()]
+            
+        ranked = sorted(
+            filtered,
+            key=lambda x: calculate_score(x, user_lat, user_lon),
+            reverse=True
+        )[:5]
 
-    return RecommendationResponse(ranked_service_ids=ranked_ids, scores=scores_map)
+        return ChatResponse(
+            message=message,
+            intent=intent,
+            recommendations=[s.model_dump() for s in ranked],
+            latency_ms=(time.time() - start_time) * 1000
+        )
+        
+    except Exception as e:
+        logger.error(f"AI Failure: {e}")
+        # Fallback to pure search
+        ranked = sorted(services, key=lambda x: calculate_score(x, user_lat, user_lon), reverse=True)[:5]
+        return ChatResponse(
+            message="I'm having trouble connecting to my AI brain, but here are the best services nearby right now.",
+            intent="FALLBACK",
+            recommendations=[s.model_dump() for s in ranked],
+            latency_ms=(time.time() - start_time) * 1000
+        )
 
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
 
-@app.get("/api/recommendations/user/{user_id}")
-def get_recommendations_for_user(user_id: int):
-    """
-    Lightweight endpoint called by Spring Boot when no service data is supplied.
-    Returns an empty list – Spring Boot should call /rank with full context instead.
-    """
-    return {"user_id": user_id, "ranked_service_ids": [], "message": "Use POST /api/recommendations/rank with full context for real results."}
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    duration = time.time() - start_time
+    logger.info(f"Path: {request.url.path} Duration: {duration:.4f}s")
+    return response
 
+@app.post("/api/ai/chat", response_model=ChatResponse)
+async def ai_chat(context: UserContext):
+    # Check Cache
+    cache_key = f"chat_cache:{context.query}:{context.latitude}:{context.longitude}"
+    cached = await redis_client.get(cache_key)
+    if cached:
+        logger.info("Serving from cache")
+        res = ChatResponse(**json.loads(cached))
+        return res
+
+    services = await get_all_services()
+    if not services:
+        return ChatResponse(
+            message="The service network is currently offline. Please try again in a few minutes.",
+            intent="ERROR",
+            latency_ms=0
+        )
+    
+    response = await detect_intent_and_rank(context.query, services, context.latitude, context.longitude)
+    
+    # Save to Cache if successful
+    if response.intent != "ERROR":
+        await redis_client.setex(cache_key, CACHE_TTL, json.dumps(response.model_dump()))
+        
+    return response
 
 @app.get("/health")
-def health():
-    return {"status": "ok", "service": "NearSphere AI Recommendation Engine"}
-
+async def health():
+    return {"status": "ok", "gemini": bool(GEMINI_API_KEY)}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

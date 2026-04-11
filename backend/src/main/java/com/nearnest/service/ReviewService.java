@@ -34,6 +34,24 @@ public class ReviewService {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private UserService userService;
+
+    public java.util.Optional<Long> getEligibleBookingId(Long serviceId) {
+        User currentUser = authService.getCurrentUser();
+        if (currentUser == null) return java.util.Optional.empty();
+        
+        java.util.Optional<Booking> booking = bookingRepository.findFirstByServiceIdAndUserIdAndStatusInOrderByCreatedAtDesc(
+            serviceId, currentUser.getId(), 
+            java.util.List.of(Booking.BookingStatus.COMPLETED, Booking.BookingStatus.REVIEW_PENDING)
+        );
+        
+        if (booking.isPresent() && !reviewRepository.existsByBookingId(booking.get().getId())) {
+            return java.util.Optional.of(booking.get().getId());
+        }
+        return java.util.Optional.empty();
+    }
+
     public List<ReviewDto> getServiceReviews(@NonNull Long serviceId) {
         return reviewRepository.findByServiceId(Objects.requireNonNull(serviceId)).stream()
                 .map(ReviewDto::fromEntity)
@@ -47,7 +65,7 @@ public class ReviewService {
     }
 
     @Transactional
-    public ReviewDto createReview(@NonNull Long bookingId, @NonNull Integer rating, String comment, List<String> tags) {
+    public ReviewDto createReview(@NonNull Long bookingId, @NonNull Integer rating, String comment, java.util.List<String> imageUrls) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new RuntimeException("User not authenticated");
@@ -60,6 +78,7 @@ public class ReviewService {
             throw new RuntimeException("You are not authorized to review this booking");
         }
 
+        // Only allow review if booking is COMPLETED or REVIEW_PENDING
         if (booking.getStatus() != com.nearnest.model.Booking.BookingStatus.REVIEW_PENDING && 
             booking.getStatus() != com.nearnest.model.Booking.BookingStatus.COMPLETED) {
             throw new RuntimeException("Booking must be completed before reviewing");
@@ -70,19 +89,19 @@ public class ReviewService {
         }
 
         Review review = new Review();
-        review.setUser(currentUser);
+        review.setCustomer(currentUser);
         review.setBooking(booking);
         review.setProvider(booking.getService().getProvider());
         review.setService(booking.getService());
         review.setRating(rating);
         review.setComment(comment);
-        if (tags != null && !tags.isEmpty()) {
-            review.setRatingTags(String.join(",", tags));
+        if (imageUrls != null) {
+            review.setImageUrls(new java.util.ArrayList<>(imageUrls));
         }
 
         Review savedReview = reviewRepository.save(review);
 
-        // Update booking status to COMPLETED if it was REVIEW_PENDING
+        // Update booking status from REVIEW_PENDING to COMPLETED if needed
         if (booking.getStatus() == com.nearnest.model.Booking.BookingStatus.REVIEW_PENDING) {
             booking.setStatus(com.nearnest.model.Booking.BookingStatus.COMPLETED);
             bookingRepository.save(booking);
@@ -106,7 +125,7 @@ public class ReviewService {
             throw new RuntimeException("User not authenticated");
         }
 
-        if (!currentUser.getId().equals(review.getUser().getId()) && 
+        if (!currentUser.getId().equals(review.getCustomer().getId()) && 
             currentUser.getRole() != User.Role.ADMIN) {
             throw new RuntimeException("You don't have permission to update this review");
         }
@@ -137,7 +156,7 @@ public class ReviewService {
             throw new RuntimeException("User not authenticated");
         }
 
-        if (!currentUser.getId().equals(review.getUser().getId()) && 
+        if (!currentUser.getId().equals(review.getCustomer().getId()) && 
             currentUser.getRole() != User.Role.ADMIN) {
             throw new RuntimeException("You don't have permission to delete this review");
         }
@@ -199,5 +218,8 @@ public class ReviewService {
         provider.setAverageRating(averageRating);
         provider.setTotalReviews(reviews.size());
         userRepository.save(provider);
+
+        // Explicitly trigger trust score recalculation
+        userService.recalculateTrustScore(providerId);
     }
 }

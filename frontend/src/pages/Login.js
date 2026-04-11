@@ -14,12 +14,11 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  // Security: Ensure fields are always empty on load to prevent unauthorized access
+  // and maintain a clean, professional production standard.
   useEffect(() => {
-    const savedUser = localStorage.getItem('remembered_username');
-    if (savedUser) {
-      setUsername(savedUser);
-      setRememberMe(true);
-    }
+    setUsername('');
+    setPassword('');
   }, []);
 
   const validateForm = () => {
@@ -95,6 +94,7 @@ const Login = () => {
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-primary-500/20 focus:bg-white transition-all"
                   placeholder="Enter your username"
+                  autoComplete="off"
                 />
               </div>
             </div>
@@ -109,6 +109,7 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-primary-500/20 focus:bg-white transition-all"
                   placeholder="••••••••"
+                  autoComplete="new-password"
                 />
               </div>
             </div>

@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Navigation, MapPin, Phone, MessageCircle, 
   Clock, ShieldCheck, CheckCircle2, ChevronLeft,
-  AlertCircle, Star, Image as ImageIcon, Briefcase
+  AlertCircle, Star, Briefcase
 } from 'lucide-react';
 import { bookingService } from '../services/bookingService';
-import { useAuth } from '../context/AuthContext';
 import GoogleMap from '../components/GoogleMap';
 
 const ServiceTracking = () => {
@@ -16,16 +15,8 @@ const ServiceTracking = () => {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { user } = useAuth();
 
-  useEffect(() => {
-    fetchBookingDetails();
-    // Poll for status updates every 5 seconds for live feel
-    const interval = setInterval(fetchBookingDetails, 5000);
-    return () => clearInterval(interval);
-  }, [bookingId]);
-
-  const fetchBookingDetails = async () => {
+  const fetchBookingDetails = React.useCallback(async () => {
     try {
       const data = await bookingService.getById(bookingId);
       setBooking(data);
@@ -35,7 +26,14 @@ const ServiceTracking = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [bookingId]);
+
+  useEffect(() => {
+    fetchBookingDetails();
+    // Poll for status updates every 5 seconds for live feel
+    const interval = setInterval(fetchBookingDetails, 5000);
+    return () => clearInterval(interval);
+  }, [fetchBookingDetails]);
 
   const statusSteps = [
     { id: 'PENDING_PAYMENT', label: 'Payment', icon: Clock },
@@ -132,14 +130,22 @@ const ServiceTracking = () => {
             </div>
 
             {(booking.status === 'ACCEPTED' || booking.status === 'ARRIVED' || booking.status === 'IN_PROGRESS') ? (
-               <div className="bg-primary-50/50 rounded-3xl p-6 border-2 border-primary-50/50 flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
-                     <Navigation className="w-6 h-6 text-primary-600 animate-bounce" />
+               <div className="bg-primary-50/50 rounded-3xl p-6 border-2 border-primary-50/50 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+                       <Navigation className="w-6 h-6 text-primary-600 animate-bounce" />
+                    </div>
+                    <div>
+                       <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest leading-none mb-1">Target Extraction</p>
+                       <p className="text-sm font-black text-slate-800">Your specialist is closing in!</p>
+                    </div>
                   </div>
-                  <div>
-                     <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest">Real-time Update</p>
-                     <p className="text-sm font-black text-slate-800">Your service provider is on the way!</p>
-                  </div>
+                  {booking.etaMinutes && (
+                    <div className="text-right">
+                       <p className="text-[9px] font-black text-primary-400 uppercase tracking-widest leading-none mb-1">ETA</p>
+                       <p className="text-xl font-black text-primary-600">{booking.etaMinutes}m</p>
+                    </div>
+                  )}
                </div>
             ) : (
                <div className="bg-slate-50 rounded-3xl p-6 border-2 border-slate-100 flex items-center gap-4">
@@ -162,6 +168,7 @@ const ServiceTracking = () => {
                  longitude={booking.service?.longitude || 0} 
                  services={[booking.service]}
                  activeServiceId={booking.service?.id}
+                 providerLocation={(booking.providerLat && booking.providerLng) ? { lat: booking.providerLat, lng: booking.providerLng } : null}
                />
             </div>
          )}
@@ -187,7 +194,16 @@ const ServiceTracking = () => {
                <a href={`tel:${booking.provider?.phone || ''}`} className="flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-2xl font-black shadow-xl shadow-slate-200 transition-all active:scale-[0.98]">
                   <Phone className="w-4 h-4" /> Call Expert
                </a>
-               <button className="flex items-center justify-center gap-3 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black transition-all active:scale-[0.98]">
+               <button 
+                  onClick={() => navigate('/messages', { 
+                    state: { 
+                      partnerId: booking.provider?.id, 
+                      partnerName: booking.service?.providerName,
+                      bookingId: booking.id
+                    } 
+                  })}
+                  className="flex items-center justify-center gap-3 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black transition-all active:scale-[0.98]"
+               >
                   <MessageCircle className="w-4 h-4" /> Message
                </button>
             </div>

@@ -17,12 +17,34 @@ const RegisterUser = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [formKey, setFormKey] = useState(0);
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  // Randomized names to evade autofill
+  const fieldNames = React.useMemo(() => ({
+    fullName: `reg_fn_${Math.random().toString(36).substring(7)}`,
+    username: `reg_un_${Math.random().toString(36).substring(7)}`,
+    email: `reg_em_${Math.random().toString(36).substring(7)}`,
+    password: `reg_pw_${Math.random().toString(36).substring(7)}`,
+    phone: `reg_ph_${Math.random().toString(36).substring(7)}`,
+    address: `reg_ad_${Math.random().toString(36).substring(7)}`
+  }), []);
+
+  React.useEffect(() => {
+    // Force form reset on mount
+    setFormData({
+      username: '',
+      email: '',
+      password: '',
+      fullName: '',
+      phone: '',
+      address: '',
+    });
+    setFormKey(prev => prev + 1);
+  }, []);
+
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,7 +66,13 @@ const RegisterUser = () => {
       setIsSuccess(true);
       // Wait for 2 seconds to show success message before redirecting
       setTimeout(() => {
-        navigate('/login/customer');
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get('redirect');
+        if (redirect) {
+          navigate(`/login/customer?redirect=${encodeURIComponent(redirect)}`);
+        } else {
+          navigate('/login/customer');
+        }
       }, 2000);
     } catch (err) {
       // Prioritize the specific message from the server (e.g., "Email is already in use!")
@@ -115,7 +143,11 @@ const RegisterUser = () => {
             )}
           </AnimatePresence>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form key={formKey} onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
+            {/* Hidden dummy fields to deflect autofill */}
+            <input type="text" name="prevent_autofill" style={{ display: 'none' }} tabIndex="-1" aria-hidden="true" />
+            <input type="password" name="password_fake" style={{ display: 'none' }} tabIndex="-1" aria-hidden="true" />
+
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-1">
                 <label className={labelClasses}>Full Name</label>
@@ -125,12 +157,13 @@ const RegisterUser = () => {
                   </div>
                   <input
                     type="text"
-                    name="fullName"
+                    name={fieldNames.fullName}
                     value={formData.fullName}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                     className={inputClasses}
                     placeholder="John Doe"
                     required
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -143,12 +176,13 @@ const RegisterUser = () => {
                   </div>
                   <input
                     type="text"
-                    name="username"
+                    name={fieldNames.username}
                     value={formData.username}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                     className={inputClasses}
                     placeholder="johndoe_pro"
                     required
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -163,12 +197,13 @@ const RegisterUser = () => {
                   </div>
                   <input
                     type="email"
-                    name="email"
+                    name={fieldNames.email}
                     value={formData.email}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className={inputClasses}
                     placeholder="john@example.com"
                     required
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -181,12 +216,13 @@ const RegisterUser = () => {
                   </div>
                   <input
                     type={showPassword ? "text" : "password"}
-                    name="password"
+                    name={fieldNames.password}
                     value={formData.password}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className={inputClasses}
                     placeholder="••••••••"
                     required
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -208,11 +244,12 @@ const RegisterUser = () => {
                   </div>
                   <input
                     type="tel"
-                    name="phone"
+                    name={fieldNames.phone}
                     value={formData.phone}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className={inputClasses}
                     placeholder="+1 (555) 000-0000"
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -225,11 +262,12 @@ const RegisterUser = () => {
                   </div>
                   <input
                     type="text"
-                    name="address"
+                    name={fieldNames.address}
                     value={formData.address}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     className={inputClasses}
                     placeholder="123 Neighborhood St."
+                    autoComplete="off"
                   />
                 </div>
               </div>

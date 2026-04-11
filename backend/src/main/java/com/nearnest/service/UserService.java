@@ -72,28 +72,37 @@ public class UserService {
         if (allBookings.isEmpty()) {
             provider.setTrustScore(100);
             provider.setCompletionRate(100.0);
-            provider.setOnTimePerformance(100.0);
-            provider.setCancellationRate(0.0);
+            provider.setResponseScore(100.0);
+            provider.setAverageRating(0.0);
             userRepository.save(provider);
             return;
         }
 
-        long total = allBookings.size();
         long completed = allBookings.stream().filter(b -> b.getStatus() == Booking.BookingStatus.COMPLETED).count();
         long cancelled = allBookings.stream().filter(b -> b.getStatus() == Booking.BookingStatus.CANCELLED).count();
-        // Since we don't track on-time explicitly yet, we'll mock it based on completion
-        double completionRate = ((double) completed / total) * 100.0;
-        double cancellationRate = ((double) cancelled / total) * 100.0;
-        double onTimePerformance = 100.0 - (cancellationRate * 0.5); // Mock metric
+        
+        // 1. Completion Rate (50%)
+        double completionRate = ((double) completed / Math.max(1, (completed + cancelled))) * 100.0;
 
-        // Trust score is a weighted sum out of 100
-        // e.g. 70% based on completion rate, 30% based on on-time performance
-        double rawScore = (completionRate * 0.7) + (onTimePerformance * 0.3);
+        // 2. Response Score (30%) - Calculated based on time to accept
+        // Average seconds to accept
+        double avgResponseSeconds = allBookings.stream()
+                .filter(b -> b.getAcceptedAt() != null)
+                .mapToLong(b -> java.time.Duration.between(b.getCreatedAt(), b.getAcceptedAt()).getSeconds())
+                .average()
+                .orElse(3600); // Default 1 hour if no data
+        
+        // Scale: 0 mins = 100, 24 hours = 0
+        double responseScore = Math.max(0, 100 - (avgResponseSeconds / 864)); 
+
+        // 3. Customer Rating (20%) - Normalized to 0-100
+        double ratingScore = (provider.getAverageRating() / 5.0) * 100.0;
+        
+        double rawScore = (completionRate * 0.5) + (responseScore * 0.3) + (ratingScore * 0.2);
         int trustScore = (int) Math.max(0, Math.min(100, rawScore));
 
         provider.setCompletionRate(Math.round(completionRate * 10.0) / 10.0);
-        provider.setCancellationRate(Math.round(cancellationRate * 10.0) / 10.0);
-        provider.setOnTimePerformance(Math.round(onTimePerformance * 10.0) / 10.0);
+        provider.setResponseScore(Math.round(responseScore * 10.0) / 10.0);
         provider.setTrustScore(trustScore);
 
         userRepository.save(provider);

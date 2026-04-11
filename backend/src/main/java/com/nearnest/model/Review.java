@@ -9,7 +9,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "reviews", indexes = {
     @Index(name = "idx_review_rating", columnList = "rating"),
-    @Index(name = "idx_review_service_id", columnList = "service_id")
+    @Index(name = "idx_review_service_id", columnList = "service_id"),
+    @Index(name = "idx_review_customer_id", columnList = "customer_id")
 })
 public class Review {
     @Id
@@ -17,8 +18,8 @@ public class Review {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "customer_id", nullable = false)
+    private User customer;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "booking_id", nullable = false, unique = true)
@@ -42,6 +43,11 @@ public class Review {
 
     @Column(length = 1000)
     private String comment;
+
+    @ElementCollection
+    @CollectionTable(name = "review_images", joinColumns = @JoinColumn(name = "review_id"))
+    @Column(name = "image_url")
+    private java.util.List<String> imageUrls = new java.util.ArrayList<>();
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -69,12 +75,12 @@ public class Review {
         this.id = id;
     }
 
-    public User getUser() {
-        return user;
+    public User getCustomer() {
+        return customer;
     }
 
-    public void setUser(User user) {
-        this.user = user;
+    public void setCustomer(User customer) {
+        this.customer = customer;
     }
 
     public Booking getBooking() {
@@ -123,6 +129,14 @@ public class Review {
 
     public void setComment(String comment) {
         this.comment = comment;
+    }
+
+    public java.util.List<String> getImageUrls() {
+        return imageUrls;
+    }
+
+    public void setImageUrls(java.util.List<String> imageUrls) {
+        this.imageUrls = imageUrls;
     }
 
     public LocalDateTime getCreatedAt() {

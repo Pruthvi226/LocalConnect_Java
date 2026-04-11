@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { 
   Sparkles, ShieldCheck, Zap, 
   MapPin, Clock, Star, ArrowRight,
-  TrendingUp, Users, CheckCircle2
+  CheckCircle2
 } from 'lucide-react';
 import ThreeDScene from '../components/ThreeDScene';
 

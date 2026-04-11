@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(name = "users")
@@ -28,6 +29,7 @@ public class User {
 
     @NotBlank
     @Size(min = 6, max = 100)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     @NotBlank
@@ -56,6 +58,9 @@ public class User {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "is_verified")
+    private Boolean isVerified = false;
+
     // Smart Trust System Metrics (Phase 2)
     @Column(name = "trust_score")
     private Integer trustScore = 100;
@@ -68,6 +73,9 @@ public class User {
 
     @Column(name = "cancellation_rate")
     private Double cancellationRate = 0.0;
+
+    @Column(name = "response_score")
+    private Double responseScore = 100.0;
 
     @Column(name = "average_rating")
     private Double averageRating = 0.0;
@@ -95,7 +103,7 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private Set<Booking> bookings = new HashSet<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
     private Set<Review> reviews = new HashSet<>();
 
     @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL)
@@ -363,6 +371,22 @@ public class User {
 
     public void setUpiId(String upiId) {
         this.upiId = upiId;
+    }
+
+    public Boolean getIsVerified() {
+        return isVerified;
+    }
+
+    public void setIsVerified(Boolean isVerified) {
+        this.isVerified = isVerified;
+    }
+
+    public Double getResponseScore() {
+        return responseScore;
+    }
+
+    public void setResponseScore(Double responseScore) {
+        this.responseScore = responseScore;
     }
 
     public enum Role {

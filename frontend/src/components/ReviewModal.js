@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './ReviewModal.css';
 import { FiStar, FiX, FiCheck } from 'react-icons/fi';
-import axios from 'axios';
+import api from '../services/api';
 import { toast } from 'react-toastify';
 
 const REVIEW_TAGS = [
@@ -37,14 +37,13 @@ const ReviewModal = ({ booking, isOpen, onClose, onReviewSuccess }) => {
 
     setIsSubmitting(true);
     try {
-      const response = await axios.post(`http://localhost:8080/api/reviews`, null, {
+      const response = await api.post(`/reviews`, null, {
         params: {
           bookingId: booking.id,
           rating: rating,
           comment: comment,
           tags: selectedTags.join(',')
-        },
-        withCredentials: true
+        }
       });
       
       toast.success('Thank you for your feedback!');

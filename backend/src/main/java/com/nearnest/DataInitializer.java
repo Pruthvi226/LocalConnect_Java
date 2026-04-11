@@ -35,41 +35,68 @@ public class DataInitializer {
                         u.setPhone("9999999999");
                         u.setAddress("Bangalore, India");
                         u.setRole(User.Role.PROVIDER);
+                        u.setTrustScore(94);
+                        u.setCompletionRate(98.0);
+                        u.setOnTimePerformance(95.5);
+                        u.setAverageRating(4.8);
+                        u.setTotalReviews(124);
+                        u.setIsVerified(true);
                         return userRepository.save(u);
                     });
 
             if (provider == null) throw new RuntimeException("Demo provider could not be created/found");
 
-            serviceRepository.save(createService(provider, "Plumber – Pipe Leak Repair",
-                    "Quick and reliable pipe leak repair for kitchens and bathrooms.",
-                    "Plumbing", new BigDecimal("300")));
+            // Cleaning with Proof-of-Work
+            serviceRepository.save(createServiceWithPortfolio(provider, "Deep Kitchen Degreasing & Cleaning",
+                    "Complete restoration of kitchen surfaces, chimneys, and cabinets using industrial grade agents.",
+                    "Cleaning", new BigDecimal("899"),
+                    "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?q=80&w=1000&auto=format&fit=crop", // Before
+                    "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?q=80&w=1000&auto=format&fit=crop"  // After
+            ));
+
+            // AC Repair with Proof-of-Work
+            serviceRepository.save(createServiceWithPortfolio(provider, "AC Jet Service & Gas Charging",
+                    "High-pressure jet cleaning and cooling optimization for all AC types.",
+                    "AC Technician", new BigDecimal("1499"),
+                    "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=1000&auto=format&fit=crop", // Before
+                    "https://images.unsplash.com/photo-1599933310631-dbf2ae036f3e?q=80&w=1000&auto=format&fit=crop"  // After
+            ));
+
+            // Plumbing with Proof-of-Work
+            serviceRepository.save(createServiceWithPortfolio(provider, "Bathroom Fitting & Leakage Fix",
+                    "Stop leaks and upgrade your bathroom fixtures with our platinum plumbing service.",
+                    "Plumbing", new BigDecimal("599"),
+                    "https://images.unsplash.com/photo-1584622781564-1d987f7333c1?q=80&w=1000&auto=format&fit=crop", // Before
+                    "https://images.unsplash.com/photo-1507652313519-d4e9174996dd?q=80&w=1000&auto=format&fit=crop"  // After
+            ));
+
             serviceRepository.save(createService(provider, "Electrician – Switch Board Repair",
                     "Safe repair and replacement of faulty switch boards and wiring.",
                     "Electrical", new BigDecimal("400")));
-            serviceRepository.save(createService(provider, "AC Technician – AC Gas Refill",
-                    "Professional AC gas refill and cooling performance check.",
-                    "AC Technician", new BigDecimal("1200")));
+
             serviceRepository.save(createService(provider, "Carpenter – Furniture Repair",
                     "Repair and refurbishment of wooden furniture and fittings.",
                     "Carpentry", new BigDecimal("700")));
-            serviceRepository.save(createService(provider, "Painter – Wall Painting",
-                    "Interior and exterior wall painting with premium paints.",
-                    "Painting", new BigDecimal("1500")));
-            serviceRepository.save(createService(provider, "Cleaner – Home Cleaning",
-                    "Deep cleaning service for homes and apartments.",
-                    "Cleaning", new BigDecimal("600")));
-            serviceRepository.save(createService(provider, "RO Technician – Water Filter Service",
-                    "RO water purifier service, filter change, and maintenance.",
-                    "RO Technician", new BigDecimal("500")));
         };
     }
 
     @NonNull
     private Service createService(@NonNull User provider,
-                                  String title,
-                                  String description,
-                                  String category,
-                                  BigDecimal price) {
+                                   String title,
+                                   String description,
+                                   String category,
+                                   BigDecimal price) {
+        return createServiceWithPortfolio(provider, title, description, category, price, null, null);
+    }
+
+    @NonNull
+    private Service createServiceWithPortfolio(@NonNull User provider,
+                                              String title,
+                                              String description,
+                                              String category,
+                                              BigDecimal price,
+                                              String beforeUrl,
+                                              String afterUrl) {
         Service s = new Service();
         s.setProvider(provider);
         s.setTitle(title);
@@ -77,7 +104,12 @@ public class DataInitializer {
         s.setCategory(category);
         s.setPrice(price);
         s.setLocation(provider.getAddress());
+        s.setImageUrl(afterUrl != null ? afterUrl : "https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=1000&auto=format&fit=crop");
+        s.setBeforeImageUrl(beforeUrl);
+        s.setAfterImageUrl(afterUrl);
         s.setIsAvailable(true);
+        s.setAverageRating(4.5 + Math.random() * 0.5);
+        s.setTotalReviews(10 + (int)(Math.random() * 50));
         return s;
     }
 }

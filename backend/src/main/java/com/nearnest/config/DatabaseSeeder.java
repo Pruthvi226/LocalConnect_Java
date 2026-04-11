@@ -87,6 +87,8 @@ public class DatabaseSeeder {
                         service.setPrice(BigDecimal.valueOf(500 + random.nextInt(2500)));
                         service.setLocation(location);
                         service.setImageUrl(getCategoryImage(category, j));
+                        service.setBeforeImageUrl(getBeforeImage(category, j));
+                        service.setAfterImageUrl(getAfterImage(category, j));
                         service.setAverageRating(3.5 + (random.nextDouble() * 1.5));
                         service.setTotalReviews(10 + random.nextInt(200));
                         service.setIsAvailable(random.nextDouble() > 0.2);
@@ -249,5 +251,33 @@ public class DatabaseSeeder {
             default:
                 return "Expert " + category + " Solutions";
         }
+    }
+
+    private String getBeforeImage(String category, int j) {
+        if ("Cleaning".equals(category)) {
+            String[] imgs = {"https://images.unsplash.com/photo-1584820927498-cafe2c161a0b", "https://images.unsplash.com/photo-1505691938895-1758d7feb511"};
+            return imgs[j % imgs.length] + "?auto=format&fit=crop&w=800&q=80";
+        } else if ("AC Repair".equals(category)) {
+            String[] imgs = {"https://images.unsplash.com/photo-1534398079543-7ae6d016b801", "https://images.unsplash.com/photo-1621360841013-c7683c659ec6"};
+            return imgs[j % imgs.length] + "?auto=format&fit=crop&w=800&q=80";
+        } else if ("Plumbing".equals(category)) {
+            String[] imgs = {"https://images.unsplash.com/photo-1585704033282-36fb1c49bf69", "https://images.unsplash.com/photo-1542013936693-884638332954"};
+            return imgs[j % imgs.length] + "?auto=format&fit=crop&w=800&q=80";
+        }
+        return null;
+    }
+
+    private String getAfterImage(String category, int j) {
+        if ("Cleaning".equals(category)) {
+            String[] imgs = {"https://images.unsplash.com/photo-1581578731548-c64695cc6958", "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac"};
+            return imgs[j % imgs.length] + "?auto=format&fit=crop&w=800&q=80";
+        } else if ("AC Repair".equals(category)) {
+            String[] imgs = {"https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5", "https://images.unsplash.com/photo-1527689638836-411945a2b57c"};
+            return imgs[j % imgs.length] + "?auto=format&fit=crop&w=800&q=80";
+        } else if ("Plumbing".equals(category)) {
+            String[] imgs = {"https://images.unsplash.com/photo-1504148455328-c376907d081c", "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39"};
+            return imgs[j % imgs.length] + "?auto=format&fit=crop&w=800&q=80";
+        }
+        return null;
     }
 }

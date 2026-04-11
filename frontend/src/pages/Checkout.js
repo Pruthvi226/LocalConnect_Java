@@ -15,6 +15,8 @@ const Checkout = () => {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [razorpayEnabled, setRazorpayEnabled] = useState(true);
   const [configMessage, setConfigMessage] = useState('');
+  const [includeInsurance, setIncludeInsurance] = useState(true);
+  const insuranceFee = 29; // Flat insurance fee in INR
 
   useEffect(() => {
     const load = async () => {
@@ -209,19 +211,19 @@ const Checkout = () => {
 
             <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-5">Pricing Breakdown</h2>
             <div className="space-y-4 mb-6">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center px-1">
                 <span className="flex items-center gap-2 text-sm font-bold text-slate-600">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
-                  Service Fee (85% to provider)
+                  Service Payout
                 </span>
-                <span className="font-black text-emerald-700">₹{(basePrice * 0.85).toFixed(0)}</span>
+                <span className="font-black text-slate-900 font-mono">₹{(basePrice * 0.90).toFixed(0)}</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center px-1">
                 <span className="flex items-center gap-2 text-sm font-bold text-slate-600">
                   <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 inline-block" />
-                  Platform Fee
+                  Platform Support
                 </span>
-                <span className="font-black text-indigo-700">₹{platformFee}</span>
+                <span className="font-black text-slate-900 font-mono">₹{platformFee}</span>
               </div>
               {booking.isEmergency && (
                 <div className="flex justify-between items-center bg-red-50 p-4 rounded-2xl border border-red-100">
@@ -233,10 +235,35 @@ const Checkout = () => {
               )}
             </div>
 
+            {/* Insurance Option */}
+            <div className={`p-4 rounded-2xl border-2 transition-all mb-8 ${includeInsurance ? 'bg-indigo-50 border-indigo-200 ring-4 ring-indigo-50/50' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+              <label className="flex items-center justify-between cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <input 
+                    type="checkbox" 
+                    checked={includeInsurance}
+                    onChange={(e) => setIncludeInsurance(e.target.checked)}
+                    className="w-5 h-5 text-indigo-600 rounded-lg focus:ring-indigo-500 border-slate-300"
+                  />
+                  <div>
+                    <p className="font-black text-slate-900 text-sm flex items-center gap-2">
+                       <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                       Safety Insurance
+                    </p>
+                    <p className="text-[10px] font-bold text-indigo-600 opacity-70">Guarantees accidental damage protection up to ₹10,000</p>
+                  </div>
+                </div>
+                <span className="font-black text-indigo-700 font-mono">₹{insuranceFee}</span>
+              </label>
+            </div>
+
             <div className="h-px bg-slate-100 mb-5" />
-            <div className="flex justify-between items-center">
-              <span className="text-xl font-black text-slate-900">Total Due</span>
-              <span className="text-3xl font-black text-primary-600">₹{totalPrice}</span>
+            <div className="flex justify-between items-center px-1">
+              <div>
+                <span className="text-xl font-black text-slate-900">Total Due</span>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">all taxes included</p>
+              </div>
+              <span className="text-4xl font-black text-primary-600 drop-shadow-sm">₹{totalPrice + (includeInsurance ? insuranceFee : 0)}</span>
             </div>
           </div>
         )}

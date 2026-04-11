@@ -6,12 +6,18 @@ export const reviewService = {
     return response.data;
   },
 
-  create: async (serviceId, rating, comment) => {
+  checkEligibility: async (serviceId) => {
+    const response = await api.get(`/reviews/service/${serviceId}/eligible`);
+    return response.data;
+  },
+
+  create: async (bookingId, rating, comment, imageUrls = []) => {
     const response = await api.post('/reviews', null, {
       params: {
-        serviceId,
+        bookingId,
         rating,
         comment: comment || '',
+        imageUrls: imageUrls.join(','),
       },
     });
     return response.data;

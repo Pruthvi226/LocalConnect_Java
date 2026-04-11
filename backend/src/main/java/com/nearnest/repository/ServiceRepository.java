@@ -23,6 +23,13 @@ public interface ServiceRepository extends JpaRepository<Service, Long> {
            "(:maxPrice IS NULL OR s.price <= :maxPrice) AND " +
            "(:minRating IS NULL OR s.averageRating >= :minRating) AND " +
            "(:isAvailableNow IS NULL OR s.isAvailableNow = :isAvailableNow) AND " +
+           "(:search IS NULL OR (" +
+           "LOWER(s.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(s.description) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(s.category) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(s.location) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(s.provider.fullName) LIKE LOWER(CONCAT('%', :search, '%'))" +
+           ")) AND " +
            "s.isAvailable = true")
     Page<Service> searchServices(
         @Param("category") String category,
@@ -31,6 +38,7 @@ public interface ServiceRepository extends JpaRepository<Service, Long> {
         @Param("maxPrice") Double maxPrice,
         @Param("minRating") Double minRating,
         @Param("isAvailableNow") Boolean isAvailableNow,
+        @Param("search") String search,
         Pageable pageable
     );
     

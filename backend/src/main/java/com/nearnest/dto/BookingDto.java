@@ -35,6 +35,9 @@ public class BookingDto {
     // Nested service object for frontend compatibility
     private ServiceSummary service;
 
+    // Nested customer object (frontend accesses booking.Customer?.fullName)
+    private CustomerInfo Customer;
+
     public BookingDto() {}
 
     public static BookingDto fromEntity(Booking b) {
@@ -89,6 +92,14 @@ public class BookingDto {
         }
         dto.setService(svc);
 
+        // Populate nested Customer object for frontend compatibility
+        CustomerInfo cust = new CustomerInfo();
+        cust.setId(b.getUser().getId());
+        cust.setFullName(b.getUser().getFullName() != null ? b.getUser().getFullName() : b.getUser().getUsername());
+        cust.setPhone(b.getUser().getPhone());
+        cust.setEmail(b.getUser().getEmail());
+        dto.setCustomer(cust);
+
         return dto;
     }
 
@@ -125,6 +136,22 @@ public class BookingDto {
         public void setPlatformFee(Double platformFee) { this.platformFee = platformFee; }
         public ProviderInfo getProvider() { return provider; }
         public void setProvider(ProviderInfo provider) { this.provider = provider; }
+    }
+
+    public static class CustomerInfo {
+        private Long id;
+        private String fullName;
+        private String phone;
+        private String email;
+
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        public String getFullName() { return fullName; }
+        public void setFullName(String fullName) { this.fullName = fullName; }
+        public String getPhone() { return phone; }
+        public void setPhone(String phone) { this.phone = phone; }
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
     }
 
     public static class ProviderInfo {
@@ -190,4 +217,6 @@ public class BookingDto {
     public void setPaymentAmount(Double paymentAmount) { this.paymentAmount = paymentAmount; }
     public ServiceSummary getService() { return service; }
     public void setService(ServiceSummary service) { this.service = service; }
+    public CustomerInfo getCustomer() { return Customer; }
+    public void setCustomer(CustomerInfo customer) { this.Customer = customer; }
 }

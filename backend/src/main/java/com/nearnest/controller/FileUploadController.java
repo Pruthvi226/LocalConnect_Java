@@ -38,4 +38,19 @@ public class FileUploadController {
         String url = fileStorageService.storeFile(file);
         return ResponseEntity.ok(Map.of("url", url));
     }
+
+    /**
+     * Upload multiple image files.
+     * POST /api/upload/images
+     * Form field: "files" (multiple)
+     */
+    @PostMapping("/images")
+    public ResponseEntity<Map<String, java.util.List<String>>> uploadImages(
+            @RequestParam("files") MultipartFile[] files) {
+        java.util.List<String> urls = new java.util.ArrayList<>();
+        for (MultipartFile file : files) {
+            urls.add(fileStorageService.storeFile(file));
+        }
+        return ResponseEntity.ok(Map.of("urls", urls));
+    }
 }

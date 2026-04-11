@@ -34,8 +34,10 @@ public class BookingController {
     AuthService authService;
 
     @GetMapping
-    public ResponseEntity<Page<BookingDto>> getUserBookings(@PageableDefault(size = 10) Pageable pageable) {
-        return ResponseEntity.ok(bookingService.getUserBookingsPaginated(Objects.requireNonNull(pageable)));
+    public ResponseEntity<Page<BookingDto>> getUserBookings(
+            @RequestParam(name = "status", required = false) BookingStatus status,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(bookingService.getUserBookingsPaginated(status, Objects.requireNonNull(pageable)));
     }
 
     @GetMapping("/{id}/invoice")
@@ -66,8 +68,10 @@ public class BookingController {
     }
 
     @GetMapping("/user")
-    public ResponseEntity<Page<BookingDto>> getUserBookingsAlias(@PageableDefault(size = 10) Pageable pageable) {
-        return ResponseEntity.ok(bookingService.getUserBookingsPaginated(Objects.requireNonNull(pageable)));
+    public ResponseEntity<Page<BookingDto>> getUserBookingsAlias(
+            @RequestParam(name = "status", required = false) BookingStatus status,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(bookingService.getUserBookingsPaginated(status, Objects.requireNonNull(pageable)));
     }
 
     @GetMapping("/{id}")
@@ -78,26 +82,27 @@ public class BookingController {
     }
 
     @PostMapping
-    public ResponseEntity<BookingDto> createBooking(
-            @RequestParam(name = "serviceId") Long serviceId,
-            @RequestParam(name = "bookingDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime bookingDate,
-            @RequestParam(name = "notes", required = false) String notes,
-            @RequestParam(name = "isEmergency", required = false) Boolean isEmergency,
-            @RequestParam(name = "problemImageUrl", required = false) String problemImageUrl,
-            @RequestParam(name = "paymentMethod", required = false, defaultValue = "ONLINE") String paymentMethod) {
-        return ResponseEntity.ok(bookingService.createBooking(Objects.requireNonNull(serviceId), Objects.requireNonNull(bookingDate), notes, isEmergency, problemImageUrl, paymentMethod));
-    }
-
-    @PostMapping("/create")
-    public ResponseEntity<BookingDto> createBookingFromBody(@Valid @RequestBody BookingCreateRequest request) {
-        return ResponseEntity.ok(bookingService.createBooking(
-                Objects.requireNonNull(request.getServiceId()),
-                Objects.requireNonNull(request.getBookingDate()),
-                request.getNotes(),
-                request.getIsEmergency(),
-                request.getProblemImageUrl(),
-                request.getPaymentMethod() != null ? request.getPaymentMethod() : "ONLINE"
-        ));
+    public ResponseEntity<?> createBooking(@Valid @RequestBody BookingCreateRequest request) {
+        try {
+            if (request.getServiceId() == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "serviceId is required"));
+            }
+            if (request.getBookingDate() == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "bookingDate is required"));
+            }
+            
+            BookingDto dto = bookingService.createBooking(
+                    request.getServiceId(),
+                    request.getBookingDate(),
+                    request.getNotes(),
+                    request.getIsEmergency(),
+                    request.getProblemImageUrl(),
+                    request.getPaymentMethod() != null ? request.getPaymentMethod() : "ONLINE"
+            );
+            return ResponseEntity.ok(dto);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Internal Server Error"));
+        }
     }
 
     @PutMapping("/{id}")
@@ -117,6 +122,23 @@ public class BookingController {
     public ResponseEntity<?> cancelBooking(@PathVariable(name = "id") Long id) {
         bookingService.cancelBooking(Objects.requireNonNull(id));
         return ResponseEntity.ok(Map.of("message", "Booking cancelled successfully"));
+    }
+
+    @PostMapping("/{id}/accept")
+    public ResponseEntity<BookingDto> acceptBooking(@PathVariable(name = "id") Long id) {
+        return ResponseEntity.ok(bookingService.updateBooking(Objects.requireNonNull(id), BookingStatus.ACCEPTED, "Booking accepted by provider"));
+    }
+
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<BookingDto> rejectBooking(@PathVariable(name = "id") Long id) {
+        return ResponseEntity.ok(bookingService.updateBooking(Objects.requireNonNull(id), BookingStatus.CANCELLED, "Booking rejected by provider"));
+    }
+
+    @PutMapping("/{id}/complete")
+    public ResponseEntity<BookingDto> completeBooking(
+            @PathVariable(name = "id") Long id,
+            @RequestBody com.nearnest.dto.BookingCompletionRequest request) {
+        return ResponseEntity.ok(bookingService.completeBooking(Objects.requireNonNull(id), request.getPaymentStatus()));
     }
 
     @PostMapping("/cancel")

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BarChart3, TrendingUp, Users, 
@@ -18,6 +19,7 @@ import { userService } from '../services/userService';
 import Pagination from '../components/Pagination';
 
 const ProviderDashboard = () => {
+  const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
   const [services, setServices] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -27,7 +29,8 @@ const ProviderDashboard = () => {
   const [proofImages, setProofImages] = useState({});
   const [transactions, setTransactions] = useState([]);
   const [UserProfile, setUserProfile] = useState(null);
-  const [activeTab, setActiveTab] = useState('tasks'); // 'tasks', 'services', 'earnings'
+  const [activeTab, setActiveTab] = useState('active'); // 'active', 'completed', 'cancelled', 'services', 'earnings'
+  const [completionModal, setCompletionModal] = useState({ open: false, bookingId: null, loading: false });
   
   const [jobsPage, setJobsPage] = useState(0);
   const [jobsTotalPages, setJobsTotalPages] = useState(0);
@@ -96,7 +99,18 @@ const ProviderDashboard = () => {
 
   const loadJobs = async () => {
     try {
+      let status = null;
+      if (activeTab === 'completed') status = 'COMPLETED';
+      else if (activeTab === 'cancelled') status = 'CANCELLED';
+      else if (activeTab === 'active') {
+        // For 'active', we might want to fetch all and filter client-side 
+        // OR the backend could support multiple statuses. 
+        // Since getProviderBookings only takes ONE status, we'll fetch all and filter client-side for active.
+        status = null; 
+      }
+
       const data = await providerService.getProviderBookings({
+        status: status,
         page: jobsPage,
         size: pageSize,
         sort: 'createdAt,desc'
@@ -143,9 +157,19 @@ const ProviderDashboard = () => {
     }
   };
 
-  const activeRequests = bookings.filter(b => !['COMPLETED', 'CANCELLED'].includes(b.status));
+  const filteredJobs = bookings.filter(b => {
+    if (activeTab === 'active') return !['COMPLETED', 'CANCELLED'].includes(b.status);
+    if (activeTab === 'completed') return b.status === 'COMPLETED';
+    if (activeTab === 'cancelled') return b.status === 'CANCELLED';
+    return true;
+  });
 
   const handleUpdateStatus = async (bookingId, newStatus) => {
+    if (newStatus === 'COMPLETED') {
+      setCompletionModal({ open: true, bookingId, loading: false });
+      return;
+    }
+
     try {
       setStatusUpdating(prev => ({ ...prev, [bookingId]: true }));
       const imgs = proofImages[bookingId] || {};
@@ -162,6 +186,31 @@ const ProviderDashboard = () => {
       console.error('Status update failed:', err);
     } finally {
       setStatusUpdating(prev => ({ ...prev, [bookingId]: false }));
+    }
+  };
+
+  const handleFinalizeCompletion = async (paymentStatus) => {
+    const { bookingId } = completionModal;
+    if (!bookingId) return;
+
+    setCompletionModal(prev => ({ ...prev, loading: true }));
+    try {
+      const imgs = proofImages[bookingId] || {};
+      // Step 1: Update images/notes if any
+      if (imgs.after) {
+        await providerService.updateBookingStatus(bookingId, 'IN_PROGRESS', null, null, imgs.after);
+      }
+      
+      // Step 2: Call specialized complete API
+      await providerService.completeBooking(bookingId, { paymentStatus });
+      
+      setCompletionModal({ open: false, bookingId: null, loading: false });
+      await loadData();
+    } catch (err) {
+      console.error('Completion finalization failed:', err);
+      alert('Failed to complete booking. Please try again.');
+    } finally {
+      setCompletionModal(prev => ({ ...prev, loading: false }));
     }
   };
 
@@ -294,7 +343,7 @@ const ProviderDashboard = () => {
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
            {[
              { label: 'Total Earnings', value: `₹${Number(summary?.totalRevenue || 0).toLocaleString()}`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50', trend: 'Lifetime' },
-             { label: 'Active Jobs', value: activeRequests.length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', trend: 'Active now' },
+             { label: 'Pending Completion', value: bookings.filter(b => !['COMPLETED', 'CANCELLED'].includes(b.status)).length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', trend: 'Active now' },
              { label: 'Completed Jobs', value: summary?.completedBookings || 0, icon: ShieldCheck, color: 'text-primary-600', bg: 'bg-primary-50', trend: 'Excellent' },
              { label: 'My Services', value: services.length, icon: BarChart3, color: 'text-indigo-600', bg: 'bg-indigo-50', trend: 'Stable performance' },
            ].map((stat, i) => (
@@ -322,47 +371,50 @@ const ProviderDashboard = () => {
            {/* Main Work Area */}
            <div className="lg:col-span-2 space-y-12">
 
-              {/* Navigation Tabs */}
-              <div className="flex space-x-2 bg-slate-200/50 p-2 rounded-2xl">
+              {/* Navigation Tabs */}               <div className="flex space-x-2 bg-slate-200/50 p-2 rounded-2xl">
                 <button 
-                   onClick={() => setActiveTab('tasks')}
-                   className={`flex-1 py-3 px-4 rounded-xl font-black text-sm transition-all ${activeTab === 'tasks' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                >Active Jobs ({activeRequests.length})</button>
+                   onClick={() => setActiveTab('active')}
+                   className={`flex-1 py-3 px-4 rounded-xl font-black text-sm transition-all ${activeTab === 'active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                >Active Jobs</button>
+                <button 
+                   onClick={() => setActiveTab('completed')}
+                   className={`flex-1 py-3 px-4 rounded-xl font-black text-sm transition-all ${activeTab === 'completed' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                >Completed</button>
+                <button 
+                   onClick={() => setActiveTab('cancelled')}
+                   className={`flex-1 py-3 px-4 rounded-xl font-black text-sm transition-all ${activeTab === 'cancelled' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                >Cancelled</button>
                 <button 
                    onClick={() => setActiveTab('services')}
                    className={`flex-1 py-3 px-4 rounded-xl font-black text-sm transition-all ${activeTab === 'services' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                >My Services</button>
+                >Services</button>
                 <button 
                    onClick={() => setActiveTab('earnings')}
                    className={`flex-1 py-3 px-4 rounded-xl font-black text-sm transition-all ${activeTab === 'earnings' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                >Earnings & Payouts</button>
+                >Earnings</button>
               </div>
 
               {/* Active Requests Inbox */}
-              {activeTab === 'tasks' && (
+              {['active', 'completed', 'cancelled'].includes(activeTab) && (
               <section>
                  <div className="flex items-center justify-between mb-8 px-2">
-                    <h2 className="text-2xl font-black text-slate-900">Active Pipeline</h2>
-                    <button 
-                      onClick={() => navigate('/provider/history')}
-                      className="flex items-center gap-2 text-primary-600 hover:text-primary-700 font-black text-xs uppercase tracking-widest transition-all group"
-                    >
-                       View All History <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                    </button>
+                    <h2 className="text-2xl font-black text-slate-900">
+                      {activeTab === 'active' ? 'Active Pipeline' : activeTab === 'completed' ? 'Service History' : 'Cancelled Jobs'}
+                    </h2>
                  </div>
 
-                 {activeRequests.length === 0 ? (
+                  {filteredJobs.length === 0 ? (
                     <div className="bg-white rounded-[3rem] p-16 text-center border border-slate-100 shadow-premium">
                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
                           <MessageSquare className="w-10 h-10 text-slate-200" />
                        </div>
                        <h4 className="text-xl font-black text-slate-800 mb-2">Workspace Clear</h4>
-                       <p className="text-slate-500 font-medium">No active tasks at the moment.</p>
+                       <p className="text-slate-500 font-medium">No {activeTab} jobs at the moment.</p>
                     </div>
                  ) : (
                     <div className="space-y-6">
                        <AnimatePresence mode="popLayout">
-                         {activeRequests.map((booking) => {
+                         {filteredJobs.map((booking) => {
                             const nextAction = getNextStatus(booking.status);
                             const isOfflinePaymentPending = booking.paymentMethod === 'OFFLINE' && booking.paymentStatus === 'PENDING';
 
@@ -456,45 +508,83 @@ const ProviderDashboard = () => {
                                           />
                                        </div>
                                      )}
-                                     {nextAction && (
-                                        <button 
-                                          disabled={statusUpdating[booking.id]}
-                                          onClick={() => handleUpdateStatus(booking.id, nextAction.next)}
-                                          className={`w-full font-black py-4 px-6 rounded-2xl text-sm transition-all active:scale-95 disabled:opacity-50 shadow-lg ${
-                                             nextAction.next === 'ACCEPTED' ? 'bg-slate-900 text-white hover:bg-black shadow-slate-200' :
-                                             nextAction.next === 'ARRIVED' ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200' :
-                                             nextAction.next === 'IN_PROGRESS' ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200' :
-                                             'bg-green-600 text-white hover:bg-green-700 shadow-green-200'
-                                          }`}
-                                        >
-                                           {statusUpdating[booking.id] ? (
-                                             <div className="flex items-center gap-2">
-                                               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                               Updating...
-                                             </div>
-                                           ) : nextAction.label}
-                                        </button>
-                                     )}
-                                     {isOfflinePaymentPending && (
-                                        <button 
-                                          onClick={() => handleConfirmPayment(booking.paymentId)}
-                                          className="w-full bg-orange-100 text-orange-700 font-black py-4 px-6 rounded-2xl text-sm border-2 border-orange-200 hover:bg-orange-200 transition-all flex items-center justify-center gap-2"
-                                        >
-                                           <CheckCircle2 className="w-5 h-5" /> Confirm UPI/Cash
-                                        </button>
-                                     )}
-                                     <div className="flex gap-2">
-                                        <button 
-                                          disabled={statusUpdating[booking.id] || booking.status === 'CANCELLED'}
-                                          onClick={() => handleUpdateStatus(booking.id, 'CANCELLED')}
-                                          className="flex-1 p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 hover:bg-red-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-black text-[10px] uppercase"
-                                        >
-                                           <Trash2 className="w-4 h-4" /> {booking.status === 'CONFIRMED' ? 'Reject Job' : 'Cancel Action'}
-                                        </button>
-                                        <a href={`tel:${booking.Customer?.phone || ''}`} className="p-4 bg-slate-100 text-slate-500 rounded-2xl border border-slate-200 hover:bg-slate-200 transition-all flex items-center justify-center">
-                                           <Phone className="w-5 h-5" />
-                                        </a>
-                                     </div>
+                                     {booking.status === 'COMPLETED' && (
+                                         <div className="space-y-3">
+                                            <div className={`p-4 rounded-2xl border flex flex-col items-center gap-1 ${booking.paymentStatus === 'COMPLETED' ? 'bg-green-50 border-green-100 text-green-700' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
+                                               <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Revenue Status</p>
+                                               <p className="text-sm font-black flex items-center gap-2">
+                                                  {booking.paymentStatus === 'COMPLETED' ? <ShieldCheck className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                                                  {booking.paymentStatus === 'COMPLETED' ? 'Settled to Wallet' : 'Payment Processing'}
+                                               </p>
+                                            </div>
+                                            <button 
+                                              onClick={async () => {
+                                                try {
+                                                  const blob = await providerService.getInvoice(booking.id);
+                                                  const url = window.URL.createObjectURL(new Blob([blob]));
+                                                  const a = document.createElement('a');
+                                                  a.href = url;
+                                                  a.download = `invoice_${booking.id}.pdf`;
+                                                  a.click();
+                                                } catch (err) {
+                                                  alert('Invoice generation failed.');
+                                                }
+                                              }}
+                                              className="w-full bg-slate-100 text-slate-600 font-black py-4 px-6 rounded-2xl text-[10px] uppercase tracking-widest border border-slate-200 hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                                            >
+                                               <DollarSign className="w-4 h-4" /> Download Invoice
+                                            </button>
+                                         </div>
+                                      )}
+
+                                      {booking.status === 'CANCELLED' && (
+                                         <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 text-center">
+                                            <XCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Job Terminated</p>
+                                         </div>
+                                      )}
+
+                                      {nextAction && (
+                                         <button 
+                                           disabled={statusUpdating[booking.id]}
+                                           onClick={() => handleUpdateStatus(booking.id, nextAction.next)}
+                                           className={`w-full font-black py-4 px-6 rounded-2xl text-sm transition-all active:scale-95 disabled:opacity-50 shadow-lg ${
+                                              nextAction.next === 'ACCEPTED' ? 'bg-slate-900 text-white hover:bg-black shadow-slate-200' :
+                                              nextAction.next === 'ARRIVED' ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200' :
+                                              nextAction.next === 'IN_PROGRESS' ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200' :
+                                              'bg-green-600 text-white hover:bg-green-700 shadow-green-200'
+                                           }`}
+                                         >
+                                            {statusUpdating[booking.id] ? (
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                Updating...
+                                              </div>
+                                            ) : nextAction.label}
+                                         </button>
+                                      )}
+                                      {isOfflinePaymentPending && (
+                                         <button 
+                                           onClick={() => handleConfirmPayment(booking.paymentId)}
+                                           className="w-full bg-orange-100 text-orange-700 font-black py-4 px-6 rounded-2xl text-sm border-2 border-orange-200 hover:bg-orange-200 transition-all flex items-center justify-center gap-2"
+                                         >
+                                            <CheckCircle2 className="w-5 h-5" /> Confirm UPI/Cash
+                                         </button>
+                                      )}
+                                      {!['COMPLETED', 'CANCELLED'].includes(booking.status) && (
+                                      <div className="flex gap-2">
+                                         <button 
+                                           disabled={statusUpdating[booking.id]}
+                                           onClick={() => handleUpdateStatus(booking.id, 'CANCELLED')}
+                                           className="flex-1 p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 hover:bg-red-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-black text-[10px] uppercase"
+                                         >
+                                            <Trash2 className="w-4 h-4" /> {booking.status === 'CONFIRMED' ? 'Reject Job' : 'Cancel Action'}
+                                         </button>
+                                         <a href={`tel:${booking.Customer?.phone || ''}`} className="p-4 bg-slate-100 text-slate-500 rounded-2xl border border-slate-200 hover:bg-slate-200 transition-all flex items-center justify-center">
+                                            <Phone className="w-5 h-5" />
+                                         </a>
+                                      </div>
+                                      )}
                                   </div>
                                </motion.div>
                             );
@@ -588,7 +678,7 @@ const ProviderDashboard = () => {
                        <table className="w-full text-left">
                           <thead>
                              <tr className="border-b border-slate-50">
-                                <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Transaction ID</th>
+                                <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Reference</th>
                                 <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Date</th>
                                 <th className="pb-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
                                 <th className="pb-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Amount</th>
@@ -600,10 +690,10 @@ const ProviderDashboard = () => {
                              )}
                              {transactions.map((tx) => (
                                 <tr key={tx.id} className="group transition-colors hover:bg-slate-50/50">
-                                   <td className="py-6 pr-4">
-                                      <p className="font-black text-slate-800 leading-tight mb-1">TX-{tx.id}</p>
-                                      <p className="text-xs font-bold text-slate-400 tracking-tight">Booking ID: {tx.paymentId}</p>
-                                   </td>
+                                    <td className="py-6 pr-4">
+                                       <p className="font-black text-slate-800 leading-tight mb-1">#{tx.id}</p>
+                                       <p className="text-xs font-bold text-slate-400 tracking-tight">Order #{tx.paymentId}</p>
+                                    </td>
                                    <td className="py-6 pr-4">
                                       <p className="font-bold text-slate-700">{dayjs(tx.createdAt).format('MMM D, YYYY')}</p>
                                       <p className="text-xs text-slate-400">{dayjs(tx.createdAt).format('h:mm A')}</p>
@@ -895,6 +985,71 @@ const ProviderDashboard = () => {
                       </button>
                    </div>
                 </form>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      
+      {/* Completion Confirmation Modal */}
+      <AnimatePresence>
+        {completionModal.open && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+             <motion.div 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => !completionModal.loading && setCompletionModal({ open: false, bookingId: null, loading: false })}
+               className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+             ></motion.div>
+             <motion.div 
+               initial={{ opacity: 0, scale: 0.9, y: 40 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.9, y: 40 }}
+               className="relative bg-white rounded-[3.5rem] p-12 max-w-md w-full shadow-2xl border border-white"
+             >
+                <div className="w-24 h-24 bg-primary-50 rounded-[2.5rem] flex items-center justify-center mb-8 mx-auto shadow-xl shadow-primary-500/10">
+                   <CheckCircle2 className="w-12 h-12 text-primary-600" />
+                </div>
+                
+                <div className="text-center mb-10">
+                   <h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Complete Service</h3>
+                   <p className="text-slate-500 font-bold leading-relaxed px-4">
+                      Before finalizing, has the customer completed the payment for this job?
+                   </p>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-4">
+                   <button 
+                     disabled={completionModal.loading}
+                     onClick={() => handleFinalizeCompletion('PAID')}
+                     className="w-full bg-slate-900 hover:bg-black text-white font-black py-5 rounded-3xl shadow-xl shadow-slate-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                   >
+                      <ShieldCheck className="w-5 h-5 text-primary-400" />
+                      Payment Received
+                   </button>
+                   <button 
+                     disabled={completionModal.loading}
+                     onClick={() => handleFinalizeCompletion('PENDING')}
+                     className="w-full bg-slate-50 hover:bg-slate-100 text-slate-600 font-black py-5 rounded-3xl border-2 border-slate-100 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                   >
+                      <Clock className="w-5 h-5 text-amber-500" />
+                      Payment Pending
+                   </button>
+                   <button 
+                     disabled={completionModal.loading}
+                     onClick={() => setCompletionModal({ open: false, bookingId: null, loading: false })}
+                     className="mt-2 text-slate-400 hover:text-slate-600 font-black text-xs uppercase tracking-widest transition-colors py-2"
+                   >
+                      Go Back
+                   </button>
+                </div>
+
+                {completionModal.loading && (
+                   <div className="mt-8 flex flex-col items-center gap-3">
+                      <div className="w-6 h-6 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Processing Transaction...</p>
+                   </div>
+                )}
              </motion.div>
           </div>
         )}

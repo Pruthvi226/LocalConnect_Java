@@ -53,15 +53,15 @@ const AdminRoute = ({ children }) => {
 };
 
 const ProviderRoute = ({ children }) => {
-  const { isAuthenticated, loading, user } = useAuth();
+  const { loading, user } = useAuth();
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="w-12 h-12 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
     </div>
   );
-  if (!isAuthenticated) return <Navigate to="/login" />;
-  if (user?.role !== 'PROVIDER' && user?.role !== 'ADMIN') return <Navigate to="/" />;
-  return children;
+  // Allow Guests (null user) or PROVIDER/ADMIN
+  if (!user || user.role === 'PROVIDER' || user.role === 'ADMIN') return children;
+  return <Navigate to="/" />;
 };
 
 const UserRoute = ({ children }) => {

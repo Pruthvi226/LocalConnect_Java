@@ -1,5 +1,7 @@
 package com.nearnest.service;
 
+import com.nearnest.model.Booking.BookingStatus;
+
 import com.nearnest.dto.BookingDto;
 import com.nearnest.dto.ProviderSummaryDto;
 import com.nearnest.model.Booking;
@@ -95,11 +97,17 @@ public class ProviderDashboardService {
         return dto;
     }
 
-    public Page<BookingDto> getProviderBookings(Pageable pageable) {
+    public Page<BookingDto> getProviderBookings(BookingStatus status, Pageable pageable) {
         User provider = authService.getCurrentUser();
         if (provider == null || (provider.getRole() != User.Role.PROVIDER && provider.getRole() != User.Role.ADMIN)) {
             throw new RuntimeException("Only providers can access provider bookings");
         }
+        
+        if (status != null) {
+            return bookingRepository.findByService_Provider_IdAndStatus(provider.getId(), status, pageable)
+                    .map(BookingDto::fromEntity);
+        }
+        
         return bookingRepository.findByService_Provider_Id(provider.getId(), pageable)
                 .map(BookingDto::fromEntity);
     }
