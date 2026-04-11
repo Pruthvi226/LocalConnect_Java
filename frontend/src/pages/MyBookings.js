@@ -79,8 +79,8 @@ const MyBookings = () => {
 
   const handleMessageProvider = (booking) => {
     setChatPartner({
-      id: booking.service?.provider?.id,
-      name: booking.service?.provider?.fullName,
+      id: booking.providerId,
+      name: booking.providerName,
       bookingId: booking.id
     });
   };

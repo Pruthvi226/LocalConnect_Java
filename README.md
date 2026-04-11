@@ -79,10 +79,82 @@ npm start
 
 ## 🧪 Production Audit
 
+<<<<<<< HEAD
 - [x] **Zero Demo Text**: Hardcoded jargon and terminal-like terminology removed.
 - [x] **Stable Routing**: Fixed all lazy-load paths and route guards.
 - [x] **Performance**: Debounced search and optimized re-renders.
 - [x] **UX Polishing**: Standardized labels (Service Providers, Customers, Bookings).
+=======
+2. Run the schema script:
+```bash
+mysql -u your_username -p servicehub < database/schema.sql
+```
+
+## 📝 API Endpoints
+
+### Authentication
+- `POST /api/auth/register/customer` - Register as customer
+- `POST /api/auth/register/provider` - Register as provider
+- `POST /api/auth/login` - Login
+- `GET /api/auth/me` - Get current user
+
+### Services
+- `GET /api/services` - Get all services
+- `GET /api/services/{id}` - Get service by ID
+- `POST /api/services` - Create service (Provider)
+- `PUT /api/services/{id}` - Update service (Provider)
+- `DELETE /api/services/{id}` - Delete service (Provider)
+
+### Bookings
+- `GET /api/bookings` - Get user bookings
+- `POST /api/bookings` - Create booking
+- `PUT /api/bookings/{id}` - Update booking
+- `DELETE /api/bookings/{id}` - Cancel booking
+
+### Messages
+- `POST /api/messages/send` - Send message
+- `GET /api/messages/conversation/{userId}` - Get conversation
+- `GET /api/messages/unread` - Get unread messages
+
+### Notifications
+- `GET /api/notifications` - Get notifications
+- `GET /api/notifications/unread` - Get unread notifications
+- `PUT /api/notifications/{id}/read` - Mark as read
+
+### Payments
+- `POST /api/payments/process` - Process payment
+- `GET /api/payments/booking/{bookingId}` - Get payment by booking
+
+### Favorites
+- `POST /api/favorites/{serviceId}` - Add to favorites
+- `DELETE /api/favorites/{serviceId}` - Remove from favorites
+- `GET /api/favorites` - Get user favorites
+
+## 🎨 Design Features
+
+- **Modern UI** - Clean, intuitive interface with Tailwind CSS
+- **3D Animations** - Interactive 3D scenes on homepage
+- **Responsive Design** - Works seamlessly on all devices
+- **Smooth Animations** - Framer Motion for fluid transitions
+- **Accessibility** - WCAG compliant design
+
+## 🔒 Security
+
+- JWT token-based authentication
+- Password encryption with BCrypt
+- Role-based access control (RBAC)
+- CORS configuration
+- Input validation and sanitization
+
+
+## 👥 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📧 Contact
+
+For questions or support, please open an issue on GitHub.
+>>>>>>> a807d4ee0f1acf4a4e623bd95345397b829a9af2
 
 ---
 

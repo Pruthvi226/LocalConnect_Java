@@ -72,6 +72,8 @@ const ChatPopup = ({ partnerId, partnerName, bookingId, onClose }) => {
       console.error('Message failed to send.', err);
     } finally {
       setSending(false);
+      // Refresh to sync correctly (as requested by user)
+      loadConversation();
     }
   };
 
@@ -201,6 +203,7 @@ const ChatPopup = ({ partnerId, partnerName, bookingId, onClose }) => {
                 className="flex-1 bg-transparent border-none text-white text-sm font-bold focus:outline-none placeholder:text-slate-600 px-3"
               />
               <button 
+                type="button"
                 onClick={handleSend}
                 disabled={sending || !newMessage.trim()}
                 className="w-10 h-10 bg-primary-500 text-white rounded-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary-500/20 disabled:opacity-50"
@@ -208,6 +211,11 @@ const ChatPopup = ({ partnerId, partnerName, bookingId, onClose }) => {
                  <Send className="w-5 h-5" />
               </button>
            </div>
+           {sending && (
+             <div className="absolute bottom-full right-6 mb-2">
+                <p className="text-[10px] font-black text-primary-500 uppercase tracking-widest animate-pulse">Sending...</p>
+             </div>
+           )}
         </div>
       </motion.div>
     </AnimatePresence>
