@@ -31,7 +31,11 @@ const ServiceTracking = () => {
   useEffect(() => {
     fetchBookingDetails();
     // Poll for status updates every 5 seconds for live feel
-    const interval = setInterval(fetchBookingDetails, 5000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchBookingDetails();
+      }
+    }, 5000);
     return () => clearInterval(interval);
   }, [fetchBookingDetails]);
 

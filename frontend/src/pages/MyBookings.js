@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -9,8 +9,9 @@ import {
 } from 'lucide-react';
 import { bookingService } from '../services/bookingService';
 import { useAuth } from '../context/AuthContext';
-import { useCallback } from 'react';
 import EmptyState from '../components/common/EmptyState';
+import ChatPopup from '../components/ChatPopup';
+import Pagination from '../components/Pagination';
 
 
 
@@ -23,6 +24,7 @@ const MyBookings = () => {
   const [cancelModal, setCancelModal] = useState({ open: false, bookingId: null });
   const [reviewModal, setReviewModal] = useState({ open: false, booking: null, rating: 5, comment: '', loading: false });
   const [activeTab, setActiveTab] = useState('active'); // 'active', 'completed', 'cancelled'
+  const [chatPartner, setChatPartner] = useState(null); // { id, name, bookingId }
   
   
   useAuth();
@@ -45,7 +47,14 @@ const MyBookings = () => {
 
   useEffect(() => {
     fetchBookings();
-    const interval = setInterval(fetchBookings, 5000); // 5s booking status sync
+    
+    // 5s polling for active bookings (Phase 6 optimization)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchBookings();
+      }
+    }, 5000);
+    
     return () => clearInterval(interval);
   }, [pagination.page, activeTab, fetchBookings]);
 
@@ -69,12 +78,10 @@ const MyBookings = () => {
   };
 
   const handleMessageProvider = (booking) => {
-    navigate('/messages', { 
-      state: { 
-        partnerId: booking.service?.provider?.id,
-        partnerName: booking.service?.provider?.fullName,
-        bookingId: booking.id
-      } 
+    setChatPartner({
+      id: booking.service?.provider?.id,
+      name: booking.service?.provider?.fullName,
+      bookingId: booking.id
     });
   };
 
@@ -119,18 +126,18 @@ const MyBookings = () => {
   };
 
   const filteredBookings = bookings.filter(b => {
-    const matchesSearch = 
-      (b.serviceTitle || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (b.providerName || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = b.service?.title?.toLowerCase().includes(term) || 
+                          b.service?.provider?.fullName?.toLowerCase().includes(term);
     
-    if (!matchesSearch) return false;
-
-    if (activeTab === 'completed') return b.status === 'COMPLETED';
-    if (activeTab === 'cancelled') return b.status === 'CANCELLED';
-    
-    // Active Tab: Everything else that is not completed or cancelled
-    return !['COMPLETED', 'CANCELLED'].includes(b.status);
+    if (activeTab === 'active') return matchesSearch && !['COMPLETED', 'CANCELLED'].includes(b.status);
+    if (activeTab === 'completed') return matchesSearch && b.status === 'COMPLETED';
+    if (activeTab === 'cancelled') return matchesSearch && b.status === 'CANCELLED';
+    return matchesSearch;
   });
+
+  // Simple Frontend Pagination for current set (can be improved to backend pagination later)
+  const paginatedBookings = filteredBookings.slice(pagination.page * pagination.size, (pagination.page + 1) * pagination.size);
 
   const getStatusConfig = (status) => {
     switch (status) {
@@ -252,7 +259,7 @@ const MyBookings = () => {
             animate="visible"
             className="grid grid-cols-1 gap-8"
           >
-            {filteredBookings.map((booking) => {
+            {paginatedBookings.map((booking) => {
               const statusCfg = getStatusConfig(booking.status);
               const progressStep = getProgressStep(booking.status);
               
@@ -436,29 +443,26 @@ const MyBookings = () => {
           </motion.div>
         )}
 
-        {/* Pagination */}
-        {!loading && filteredBookings.length > 0 && pagination.totalPages > 1 && (
-          <div className="flex justify-center mt-12 gap-4">
-             <button 
-               disabled={pagination.page === 0}
-               onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
-               className="p-4 bg-white border border-slate-100 rounded-2xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-all shadow-sm"
-             >
-              <ChevronRight className="w-5 h-5 rotate-180" />
-             </button>
-             <div className="flex items-center px-8 bg-white border border-slate-100 rounded-2xl text-sm font-black text-slate-400">
-                <span className="text-slate-900 mr-2">{pagination.page + 1}</span> / {pagination.totalPages}
-             </div>
-             <button 
-               disabled={pagination.page >= pagination.totalPages - 1}
-               onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
-               className="p-4 bg-white border border-slate-100 rounded-2xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-all shadow-sm"
-             >
-              <ChevronRight className="w-5 h-5" />
-             </button>
+        {/* Pagination (Phase 3) */}
+        {!loading && filteredBookings.length > pagination.size && (
+          <div className="mt-12">
+            <Pagination 
+              currentPage={pagination.page}
+              totalPages={Math.ceil(filteredBookings.length / pagination.size)}
+              onPageChange={(p) => setPagination(prev => ({ ...prev, page: p }))}
+            />
           </div>
         )}
-      </div>
+
+        {/* Chat Popup (Phase 4 Hybrid Approach) */}
+        {chatPartner && (
+          <ChatPopup 
+            partnerId={chatPartner.id}
+            partnerName={chatPartner.name}
+            bookingId={chatPartner.bookingId}
+            onClose={() => setChatPartner(null)}
+          />
+        )}
 
       {/* Review Modal */}
       <AnimatePresence>
@@ -576,6 +580,7 @@ const MyBookings = () => {
           </div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 };

@@ -49,27 +49,34 @@ const Messages = () => {
   useEffect(() => {
     if (selectedUserId) {
         loadConversation(selectedUserId);
-        const interval = setInterval(() => loadConversation(selectedUserId), 5000); // 5s chat polling
+        const interval = setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            loadConversation(selectedUserId);
+          }
+        }, 5000); // 5s chat polling
         return () => clearInterval(interval);
     }
   }, [selectedUserId]);
 
   useEffect(() => {
     if (!lastMessage) return;
-    const fromId = lastMessage.senderId;
+    
+    // Determine the partner ID from the message
+    const partnerId = lastMessage.senderId === user?.id ? lastMessage.receiverId : lastMessage.senderId;
+    const partnerName = lastMessage.senderId === user?.id ? (lastMessage.receiverName || 'Expert') : (lastMessage.senderName || 'Expert');
     
     // Update conversation list
     setConversations((prev) => {
-      const existingIdx = prev.findIndex(c => c.id === fromId);
+      const existingIdx = prev.findIndex(c => c.id === partnerId);
       if (existingIdx > -1) {
          const updated = [...prev];
          updated[existingIdx] = { ...updated[existingIdx], lastContent: lastMessage.content, timestamp: new Date() };
          return [updated[existingIdx], ...updated.filter((_, i) => i !== existingIdx)];
       }
-      return [{ id: fromId, name: lastMessage.senderName || 'Expert', lastContent: lastMessage.content }, ...prev];
+      return [{ id: partnerId, name: partnerName, lastContent: lastMessage.content }, ...prev];
     });
 
-    if (selectedUserId === fromId) {
+    if (selectedUserId === partnerId) {
        setMessages(prev => [...prev, {
          id: lastMessage.id,
          content: lastMessage.content,

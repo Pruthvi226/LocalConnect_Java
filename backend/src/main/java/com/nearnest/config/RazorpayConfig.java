@@ -25,6 +25,7 @@ public class RazorpayConfig {
     }
 
     public boolean isConfigured() {
-        return keyId != null && !keyId.isEmpty() && keySecret != null && !keySecret.isEmpty();
+        return keyId != null && !keyId.isEmpty() && !keyId.contains("placeholder") && 
+               keySecret != null && !keySecret.isEmpty() && !keySecret.contains("placeholder");
     }
 }

@@ -10,13 +10,11 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.lang.NonNull;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Objects;
 
@@ -92,8 +90,8 @@ public class BookingController {
             }
             
             BookingDto dto = bookingService.createBooking(
-                    request.getServiceId(),
-                    request.getBookingDate(),
+                    Objects.requireNonNull(request.getServiceId()),
+                    Objects.requireNonNull(request.getBookingDate()),
                     request.getNotes(),
                     request.getIsEmergency(),
                     request.getProblemImageUrl(),

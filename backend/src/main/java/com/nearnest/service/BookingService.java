@@ -294,17 +294,20 @@ public class BookingService {
                 
                 // If it was a paid booking, we might want more logic here
                 // For now, let's keep it simple
-            } else if (saved.getStatus() == BookingStatus.CANCELLED) {
-                User toNotify = currentUser.getId().equals(provider.getId()) ? customer : provider;
-                title = "Booking Cancelled";
-                message = "Booking #" + saved.getId() + " has been cancelled.";
-                type = Notification.NotificationType.BOOKING_CANCELLED;
-                userService.recalculateTrustScore(Objects.requireNonNull(Objects.requireNonNull(provider).getId()));
-                notificationService.createNotification(Objects.requireNonNull(toNotify), title, message, type, saved.getId());
-                return convertToDto(saved); // Early return for cancelled
             }
-            
-            notificationService.createNotification(Objects.requireNonNull(customer), title, message, type, saved.getId());
+
+            // Wrap notification in try-catch to prevent rollback of booking transaction
+            try {
+                if (saved.getStatus() == BookingStatus.CANCELLED) {
+                    User toNotify = currentUser.getId().equals(provider.getId()) ? customer : provider;
+                    notificationService.createNotification(Objects.requireNonNull(toNotify), title, message, type, saved.getId());
+                } else {
+                    notificationService.createNotification(Objects.requireNonNull(customer), title, message, type, saved.getId());
+                }
+            } catch (Exception e) {
+                log.error("Failed to send lifecycle notification for booking #{}: {}", saved.getId(), e.getMessage());
+                // Non-blocking: flow continues
+            }
         }
         return convertToDto(saved);
     }

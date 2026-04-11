@@ -299,9 +299,9 @@ const Checkout = () => {
             )}
           </button>
         ) : (
-          <div className="bg-amber-50 border border-amber-200 p-5 rounded-3xl text-center">
-            <p className="text-amber-700 font-bold text-sm mb-1">Online payments are currently unavailable</p>
-            <p className="text-amber-600/70 text-[10px] font-black uppercase tracking-widest">{configMessage || 'Please use the offline payment option below.'}</p>
+          <div className="bg-amber-50 border border-amber-200 p-6 rounded-3xl text-center">
+            <p className="text-amber-700 font-black text-sm mb-1 uppercase tracking-tight">Online Payment Unavailable</p>
+            <p className="text-amber-600 font-bold text-[11px] uppercase tracking-widest">— Use Cash or UPI After Service —</p>
           </div>
         )}
 

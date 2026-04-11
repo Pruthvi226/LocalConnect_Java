@@ -10,13 +10,14 @@ import {
   ShieldCheck, LayoutDashboard,
   ArrowUpRight, Search,
   Calendar, MapPin, Star, Phone,
-  ArrowRight
+  ArrowRight, MessageCircle
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import { providerService } from '../services/providerService';
 import { serviceService } from '../services/serviceService';
 import { userService } from '../services/userService';
 import Pagination from '../components/Pagination';
+import ChatPopup from '../components/ChatPopup';
 
 const ProviderDashboard = () => {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ const ProviderDashboard = () => {
   const [UserProfile, setUserProfile] = useState(null);
   const [activeTab, setActiveTab] = useState('active'); // 'active', 'completed', 'cancelled', 'services', 'earnings'
   const [completionModal, setCompletionModal] = useState({ open: false, bookingId: null, loading: false });
+  const [chatPartner, setChatPartner] = useState(null); // { id, name, bookingId }
   
   const [jobsPage, setJobsPage] = useState(0);
   const [jobsTotalPages, setJobsTotalPages] = useState(0);
@@ -47,22 +49,37 @@ const ProviderDashboard = () => {
   const [serviceForm, setServiceForm] = useState({
     title: '', description: '', category: '', price: '', location: '', isAvailable: true
   });
-  
   const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
   const [payoutForm, setPayoutForm] = useState({
     fullName: '', bankAccountNumber: '', ifscCode: '', upiId: ''
   });
+
   
   useEffect(() => {
     loadData();
-  }, []);
+    
+    // 5s polling for active jobs (Phase 6 optimization)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible' && (activeTab === 'active' || activeTab === 'tasks')) {
+        loadJobs();
+      }
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
   useEffect(() => {
-    if (activeTab === 'tasks') loadJobs();
+    // Reset page to 0 when switching tabs to avoid "no results" on high pages
+    setJobsPage(0);
+    loadJobs();
+  }, [activeTab]);
+
+  useEffect(() => {
+    loadJobs();
   }, [jobsPage]);
 
   useEffect(() => {
-    if (activeTab === 'earnings') loadTransactions();
+    loadTransactions();
   }, [txPage]);
 
   const loadData = async () => {
@@ -173,7 +190,16 @@ const ProviderDashboard = () => {
     try {
       setStatusUpdating(prev => ({ ...prev, [bookingId]: true }));
       const imgs = proofImages[bookingId] || {};
+      
+      // Call service
       await providerService.updateBookingStatus(bookingId, newStatus, null, imgs.before, imgs.after);
+      
+      // Immediate UI Feedback (Phase 1 Fix)
+      setBookings(prev => prev.map(b => 
+        b.id === bookingId ? { ...b, status: newStatus } : b
+      ));
+
+      // Refresh data
       await loadData();
       
       // Clear images after update
@@ -182,8 +208,11 @@ const ProviderDashboard = () => {
         delete next[bookingId];
         return next;
       });
-    } catch (err) { 
-      console.error('Status update failed:', err);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      // Detailed error for user (Stability Rule)
+      const errorMsg = err.response?.data?.message || `Failed to transition to ${newStatus}. Please check connection.`;
+      alert(errorMsg); 
     } finally {
       setStatusUpdating(prev => ({ ...prev, [bookingId]: false }));
     }
@@ -204,6 +233,11 @@ const ProviderDashboard = () => {
       // Step 2: Call specialized complete API
       await providerService.completeBooking(bookingId, { paymentStatus });
       
+      // Optimistic Update
+      setBookings(prev => prev.map(b => 
+        b.id === bookingId ? { ...b, status: 'COMPLETED', paymentStatus: paymentStatus === 'PAID' ? 'COMPLETED' : b.paymentStatus } : b
+      ));
+
       setCompletionModal({ open: false, bookingId: null, loading: false });
       await loadData();
     } catch (err) {
@@ -518,6 +552,7 @@ const ProviderDashboard = () => {
                                                </p>
                                             </div>
                                             <button 
+                                              type="button"
                                               onClick={async () => {
                                                 try {
                                                   const blob = await providerService.getInvoice(booking.id);
@@ -537,15 +572,21 @@ const ProviderDashboard = () => {
                                          </div>
                                       )}
 
-                                      {booking.status === 'CANCELLED' && (
-                                         <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 text-center">
-                                            <XCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Job Terminated</p>
-                                         </div>
-                                      )}
+                                      <button 
+                                        type="button"
+                                        onClick={() => setChatPartner({
+                                          id: booking.customerId,
+                                          name: booking.customerName,
+                                          bookingId: booking.id
+                                        })}
+                                        className="w-full flex items-center justify-center gap-2 py-4 bg-slate-50 text-slate-500 rounded-2xl hover:bg-slate-100 transition-all font-black text-xs uppercase"
+                                      >
+                                         <MessageCircle className="w-4 h-4" /> Message Customer
+                                      </button>
 
                                       {nextAction && (
                                          <button 
+                                           type="button"
                                            disabled={statusUpdating[booking.id]}
                                            onClick={() => handleUpdateStatus(booking.id, nextAction.next)}
                                            className={`w-full font-black py-4 px-6 rounded-2xl text-sm transition-all active:scale-95 disabled:opacity-50 shadow-lg ${
@@ -574,6 +615,7 @@ const ProviderDashboard = () => {
                                       {!['COMPLETED', 'CANCELLED'].includes(booking.status) && (
                                       <div className="flex gap-2">
                                          <button 
+                                           type="button"
                                            disabled={statusUpdating[booking.id]}
                                            onClick={() => handleUpdateStatus(booking.id, 'CANCELLED')}
                                            className="flex-1 p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 hover:bg-red-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-black text-[10px] uppercase"
@@ -1054,9 +1096,15 @@ const ProviderDashboard = () => {
           </div>
         )}
       </AnimatePresence>
+
+      <ChatPopup 
+        partnerId={chatPartner?.id}
+        partnerName={chatPartner?.name}
+        bookingId={chatPartner?.bookingId}
+        onClose={() => setChatPartner(null)}
+      />
     </div>
   );
 };
 
 export default ProviderDashboard;
-
