@@ -8,6 +8,13 @@ backend/*.iml
 backend/.mvn/
 backend/mvnw
 backend/mvnw.cmd
+# Uploaded files (binary data, should use CDN in production)
+backend/uploads/
+# Production profile (may contain real credentials — never commit)
+backend/src/main/resources/application-prod.properties
+# Build log files
+backend/*.log
+backend/*.txt
 
 # Frontend (React/Node)
 frontend/node_modules/
@@ -22,6 +29,9 @@ frontend/.env.production.local
 frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
+# Build log files
+frontend/*.log
+frontend/build_log*.txt
 
 # IDE
 .idea/

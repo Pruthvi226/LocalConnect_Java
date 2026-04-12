@@ -4,82 +4,93 @@ services:
   # ── MySQL Database ─────────────────────────────
   db:
     image: mysql:8.0
-    container_name: nearsphere-db
+    container_name: proxisense-db
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: nearsphere_db
-      MYSQL_USER: nearsphere
-      MYSQL_PASSWORD: nearsphere123
+      MYSQL_DATABASE: proxisense
+      MYSQL_USER: proxisense
+      MYSQL_PASSWORD: proxisense123
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
-      - nearsphere-net
+      - proxisense-net
 
   # ── Spring Boot Backend ────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: nearsphere-backend
+    container_name: proxisense-backend
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/nearsphere_db
-      SPRING_DATASOURCE_USERNAME: nearsphere
-      SPRING_DATASOURCE_PASSWORD: nearsphere123
-      JWT_SECRET: NearSphereAI_Super_Secret_Key_2025
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/proxisense?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: proxisense
+      SPRING_DATASOURCE_PASSWORD: proxisense123
+      JWT_SECRET: ProxiSense-Docker-JWT-Secret-Change-In-Prod!
       ML_SERVICE_URL: http://ml:8000
+      # Allow both the nginx frontend container and localhost for dev tools
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://frontend:80
       SPRING_PROFILES_ACTIVE: prod
     ports:
       - "8080:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
-      - nearsphere-net
+      - proxisense-net
 
   # ── Python ML Microservice ─────────────────────
   ml:
     build:
       context: ./backend-ml
       dockerfile: Dockerfile
-    container_name: nearsphere-ml
+    container_name: proxisense-ml
     restart: unless-stopped
     ports:
       - "8000:8000"
     networks:
-      - nearsphere-net
+      - proxisense-net
 
   # ── React Frontend ─────────────────────────────
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: nearsphere-frontend
+      args:
+        # Backend URL seen FROM the browser — must be publicly reachable.
+        # In a local Docker setup, use localhost (browser talks to host).
+        REACT_APP_API_URL: http://localhost:8080/api
+        REACT_APP_WS_URL: http://localhost:8080/ws
+    container_name: proxisense-frontend
     restart: unless-stopped
-    environment:
-      REACT_APP_API_URL: http://localhost:8080
     ports:
       - "3000:80"
     depends_on:
       - backend
     networks:
-      - nearsphere-net
+      - proxisense-net
 
   # ── Redis (Cache) ─────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: nearsphere-redis
+    container_name: proxisense-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
     networks:
-      - nearsphere-net
+      - proxisense-net
 
 volumes:
   mysql_data:
 
 networks:
-  nearsphere-net:
+  proxisense-net:
     driver: bridge

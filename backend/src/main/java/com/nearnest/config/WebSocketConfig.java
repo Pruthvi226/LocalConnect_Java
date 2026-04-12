@@ -9,6 +9,9 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.lang.NonNull;
 
+import java.util.Arrays;
+import java.util.List;
+
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
@@ -20,8 +23,28 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
+        // Resolve allowed origins from the same env var used by SecurityConfig.
+        // CORS_ALLOWED_ORIGINS is a comma-separated list, e.g.:
+        //   https://proxisense.vercel.app,http://localhost:3000
+        String rawOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
+        @NonNull String[] allowedPatterns;
+        if (rawOrigins != null && !rawOrigins.isBlank()) {
+            List<String> origins = Arrays.stream(rawOrigins.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .toList();
+            allowedPatterns = origins.toArray(new String[0]);
+        } else {
+            // Local development defaults
+            allowedPatterns = new String[]{
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:3001"
+            };
+        }
+
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("http://localhost:3000", "http://127.0.0.1:3000")
+                .setAllowedOriginPatterns(allowedPatterns)
                 .withSockJS();
     }
 

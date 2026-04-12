@@ -85,14 +85,32 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        // Read allowed origins from environment variable CORS_ALLOWED_ORIGINS (comma-separated).
+        // Example: https://proxisense.vercel.app,http://localhost:3000
+        // Falls back to localhost only if the env var is not set.
+        String rawOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
+        List<String> allowedOrigins;
+        if (rawOrigins != null && !rawOrigins.isBlank()) {
+            allowedOrigins = Arrays.stream(rawOrigins.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .toList();
+        } else {
+            // Local development defaults
+            allowedOrigins = List.of(
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:3001",
+                "http://127.0.0.1:3001"
+            );
+        }
+
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(
-            "http://localhost:3000", "http://127.0.0.1:3000",
-            "http://localhost:3001", "http://127.0.0.1:3001"
-        ));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedOrigins(allowedOrigins);
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

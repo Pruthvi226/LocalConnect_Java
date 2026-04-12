@@ -19,7 +19,7 @@ import java.util.HashMap;
  */
 @RestController
 @RequestMapping("/api/payments")
-@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"}, allowCredentials = "true")
+// CORS is handled globally by SecurityConfig.corsConfigurationSource() — do NOT add @CrossOrigin here.
 public class PaymentController {
     private final PaymentService paymentService;
     private final StripeService stripeService;
