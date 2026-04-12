@@ -1,0 +1,15 @@
+[tool.ruff]
+# Target Python 3.11 (matches CI setup)
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+# Only check for real errors, not style/modernization issues
+select = ["E", "F", "W"]
+ignore = [
+    "E501",   # Line too long — handled by line-length above
+    "UP006",  # Use `list` instead of `List` — keep typing module compat
+    "UP007",  # Use `X | Y` for union — keep Optional for clarity
+    "UP035",  # typing imports deprecated in 3.12 — we target 3.11
+    "F841",   # Local variable assigned but never used — false positives in async
+]
