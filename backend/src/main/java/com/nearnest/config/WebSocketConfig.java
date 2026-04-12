@@ -10,7 +10,6 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 import org.springframework.lang.NonNull;
 
 import java.util.Arrays;
-import java.util.List;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -23,24 +22,19 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
-        // Resolve allowed origins from the same env var used by SecurityConfig.
-        // CORS_ALLOWED_ORIGINS is a comma-separated list, e.g.:
-        //   https://proxisense.vercel.app,http://localhost:3000
+        // Resolve allowed origins from CORS_ALLOWED_ORIGINS env var (comma-separated).
+        // Example: https://proxisense.vercel.app,http://localhost:3000
+        // Falls back to localhost defaults when env var is not set (local dev).
         String rawOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
-        @NonNull String[] allowedPatterns;
+
+        // Initialize with non-null local-dev defaults
+        String[] allowedPatterns = { "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001" };
+
         if (rawOrigins != null && !rawOrigins.isBlank()) {
-            List<String> origins = Arrays.stream(rawOrigins.split(","))
+            allowedPatterns = Arrays.stream(rawOrigins.split(","))
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
-                    .toList();
-            allowedPatterns = origins.toArray(new String[0]);
-        } else {
-            // Local development defaults
-            allowedPatterns = new String[]{
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "http://localhost:3001"
-            };
+                    .toArray(String[]::new);
         }
 
         registry.addEndpoint("/ws")
@@ -60,4 +54,3 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registration.interceptors(stompAuthChannelInterceptor);
     }
 }
-
