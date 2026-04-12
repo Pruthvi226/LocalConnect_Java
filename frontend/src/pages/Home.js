@@ -220,7 +220,7 @@ const Home = () => {
            </header>
 
         {/* Premium Search Bar */}
-        <div className="w-full md:w-[70%] max-w-4xl mx-auto mb-16 px-4">
+        <div className="search-container mb-16 px-4">
           <form 
             onSubmit={(e) => { e.preventDefault(); }} 
             className="sticky top-20 z-40 relative flex items-center w-full bg-white/70 backdrop-blur-xl border border-indigo-500/20 shadow-[0_8px_30px_rgb(0,0,0,0.06)] rounded-[2rem] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] focus-within:shadow-[0_8px_30px_rgb(0,0,0,0.12)] focus-within:ring-4 focus-within:ring-indigo-500/30"
@@ -230,7 +230,7 @@ const Home = () => {
             </div>
             <input
               type="text"
-              className="flex-1 bg-transparent border-none outline-none py-5 px-2 text-slate-700 font-medium placeholder-slate-400 text-lg sm:text-xl w-full"
+              className="search-input flex-1 bg-transparent border-none outline-none text-slate-700 font-medium placeholder-slate-400 w-full"
               placeholder={placeholderText}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -254,7 +254,7 @@ const Home = () => {
             <div className="pr-3 py-3">
               <button 
                 type="submit"
-                className="bg-slate-900 hover:bg-slate-800 text-white px-6 sm:px-10 py-3 sm:py-4 rounded-full font-black flex items-center justify-center transition-all active:scale-95 shadow-lg shadow-slate-900/20"
+                className="search-btn bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black transition-all active:scale-95 shadow-lg shadow-slate-900/20"
               >
                 {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin sm:mr-2" /> : <Search className="w-5 h-5 sm:mr-2" />}
                 <span className="hidden sm:block">Search</span>

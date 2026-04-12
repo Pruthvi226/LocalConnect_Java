@@ -59,7 +59,11 @@ const ChatPopup = ({ partnerId, partnerName, bookingId, onClose }) => {
     if (!trimmed || !partnerId) return;
     try {
       setSending(true);
-      const sentMsg = await messageService.send(partnerId, trimmed, bookingId);
+      const sentMsg = await messageService.send({ 
+        receiverId: partnerId, 
+        content: trimmed, 
+        bookingId 
+      });
       setNewMessage('');
       // Optimistic update
       setMessages(prev => [...prev, {
@@ -72,7 +76,7 @@ const ChatPopup = ({ partnerId, partnerName, bookingId, onClose }) => {
       console.error('Message failed to send.', err);
     } finally {
       setSending(false);
-      // Refresh to sync correctly (as requested by user)
+      // Refresh to ensure sync (as requested)
       loadConversation();
     }
   };
