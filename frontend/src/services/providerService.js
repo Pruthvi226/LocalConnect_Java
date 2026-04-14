@@ -16,7 +16,7 @@ export const providerService = {
     return response.data;
   },
 
-  updateBookingStatus: async (id, status, notes, beforeImageUrl, afterImageUrl, providerLat, providerLng, etaMinutes) => {
+  updateBookingStatus: async (id, status, notes, beforeImageUrl, afterImageUrl, providerLat, providerLng, etaMinutes, pin) => {
     const response = await api.put(`/provider/bookings/${id}`, null, {
       params: { 
         status, 
@@ -25,7 +25,8 @@ export const providerService = {
         afterImageUrl: afterImageUrl || '',
         providerLat,
         providerLng,
-        etaMinutes
+        etaMinutes,
+        pin
       },
     });
     return response.data;
@@ -56,6 +57,11 @@ export const providerService = {
     return response.data;
   },
   
+  proposePrice: async (id, price) => {
+    const response = await api.post(`/bookings/${id}/propose-price`, { price });
+    return response.data;
+  },
+
   getInvoice: async (id) => {
     const response = await api.get(`/bookings/${id}/invoice`, {
       responseType: 'blob'

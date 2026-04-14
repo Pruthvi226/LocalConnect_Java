@@ -19,6 +19,8 @@ import GoogleMap from '../components/GoogleMap';
 import { useGuestGuard } from '../hooks/useGuestGuard';
 import GuestModal from '../components/GuestModal';
 import { toast } from 'react-toastify';
+import PortfolioGallery from '../components/PortfolioGallery';
+import BeforeAfterSlider from '../components/BeforeAfterSlider';
 
 const ServiceDetails = () => {
   const { id } = useParams();
@@ -122,10 +124,20 @@ const ServiceDetails = () => {
         }
       }, 2000);
     } catch (err) {
-      console.error("Booking failed:", err);
-      const errMsg = err.response?.data?.error || err.response?.data?.message || "Booking failed";
-      setError(errMsg);
-      toast.error(errMsg);
+      const errorMsg = err.response?.data?.message || err.message;
+      if (errorMsg.includes('not available') || errorMsg.includes('conflict')) {
+        toast.error(errorMsg, {
+          position: "top-center",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "colored",
+        });
+      } else {
+        toast.error('Booking failed. Please try again.');
+      }
     } finally {
       setBookingLoading(false);
     }
@@ -282,56 +294,64 @@ const ServiceDetails = () => {
                   </p>
                 </div>
 
-                {/* Proof of Work - Side by Side Gallery */}
-                {service.beforeImageUrl && service.afterImageUrl && (
-                <div className="bg-white rounded-[2.5rem] p-8 lg:p-10 border border-slate-100 shadow-premium">
-                  <div className="flex justify-between items-end mb-8">
-                    <div>
-                      <h3 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-                         <Sparkles className="w-6 h-6 text-amber-500" />
-                         Results Gallery
-                      </h3>
-                      <p className="text-slate-400 font-bold text-sm tracking-tight mt-1">Real proof from past neighborhood jobs</p>
-                    </div>
-                    <div className="hidden sm:flex flex-col items-end">
-                      <div className="bg-green-100 text-green-700 text-[10px] font-black px-3 py-1 rounded-full border border-green-200 uppercase tracking-widest mb-1">Authentic</div>
-                      <span className="text-[10px] font-bold text-slate-400">Captured by Specialists</span>
-                    </div>
-                  </div>
+                {/* New Phase 4 Portfolio Sections */}
+                <div className="space-y-12">
+                  {/* 1. Live Project History (Automated Reels) */}
+                  {service.projectReels && service.projectReels.length > 0 && (
+                    <div className="bg-white rounded-[2.5rem] p-8 lg:p-10 border border-slate-100 shadow-premium">
+                      <div className="flex justify-between items-end mb-8">
+                        <div>
+                          <h3 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                            <Sparkles className="w-6 h-6 text-amber-500" />
+                            Live Project Reels
+                          </h3>
+                          <p className="text-slate-400 font-bold text-sm tracking-tight mt-1">Verified results from neighborhood bookings</p>
+                        </div>
+                        <span className="hidden sm:block bg-green-50 text-green-600 text-[10px] font-black px-4 py-2 rounded-2xl border border-green-100 uppercase tracking-widest">
+                           Verified Proof
+                        </span>
+                      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <div className="space-y-4">
-                        <div className="relative group/gallery aspect-[4/3] rounded-[2rem] overflow-hidden border-2 border-slate-50">
-                           <img 
-                             src={service.beforeImageUrl} 
-                             className="w-full h-full object-cover transition-transform duration-700 group-hover/gallery:scale-110" 
-                             alt="Before service" 
-                           />
-                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity"></div>
-                           <div className="absolute bottom-4 left-4">
-                              <span className="bg-red-500 text-white text-[10px] font-black px-3 py-1.5 rounded-xl border border-red-400 shadow-lg uppercase tracking-widest">Before Service</span>
-                           </div>
-                        </div>
-                     </div>
-                     <div className="space-y-4">
-                        <div className="relative group/gallery aspect-[4/3] rounded-[2rem] overflow-hidden border-4 border-primary-100 shadow-xl shadow-primary-500/10">
-                           <img 
-                             src={service.afterImageUrl} 
-                             className="w-full h-full object-cover transition-transform duration-700 group-hover/gallery:scale-110" 
-                             alt="After service" 
-                           />
-                           <div className="absolute inset-0 bg-gradient-to-t from-primary-900/60 via-transparent to-transparent opacity-0 group-hover/gallery:opacity-100 transition-opacity"></div>
-                           <div className="absolute bottom-4 left-4">
-                              <span className="bg-primary-600 text-white text-[10px] font-black px-3 py-1.5 rounded-xl border border-primary-400 shadow-lg uppercase tracking-widest flex items-center gap-1">
-                                 <CheckCircle2 className="w-3.5 h-3.5" />
-                                 After Service
-                              </span>
-                           </div>
-                        </div>
-                     </div>
-                  </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {service.projectReels.map((reel, idx) => (
+                          <motion.div 
+                            key={reel.bookingId}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            whileInView={{ opacity: 1, scale: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: idx * 0.1 }}
+                          >
+                             <BeforeAfterSlider 
+                               before={reel.beforeImageUrl} 
+                               after={reel.afterImageUrl} 
+                               label={`Project #${reel.bookingId} - ${dayjs(reel.completedAt).format('MMM YYYY')}`}
+                             />
+                             {reel.customerNote && (
+                               <p className="mt-4 text-slate-500 text-xs font-medium italic px-4 border-l-2 border-slate-100">
+                                 &quot;{reel.customerNote}&quot;
+                               </p>
+                             )}
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. Master Portfolio (Manual Carousel/Masonry) */}
+                  {service.portfolioImages && service.portfolioImages.length > 0 && (
+                    <div className="bg-white rounded-[2.5rem] p-8 lg:p-10 border border-slate-100 shadow-premium">
+                      <div className="mb-8">
+                        <h3 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                          <Camera className="w-6 h-6 text-primary-500" />
+                          Master Portfolio
+                        </h3>
+                        <p className="text-slate-400 font-bold text-sm tracking-tight mt-1">Provider's curated showcase of excellence</p>
+                      </div>
+                      
+                      <PortfolioGallery images={service.portfolioImages} />
+                    </div>
+                  )}
                 </div>
-                )}
             </section>
 
             {/* Provider Spotlight */}

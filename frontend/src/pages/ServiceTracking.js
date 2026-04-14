@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { 
   Navigation, MapPin, Phone, MessageCircle, 
   Clock, ShieldCheck, CheckCircle2, ChevronLeft,
-  AlertCircle, Star, Briefcase
+  AlertCircle, Star, Briefcase, DollarSign, Zap
 } from 'lucide-react';
 import { bookingService } from '../services/bookingService';
 import GoogleMap from '../components/GoogleMap';
@@ -43,8 +43,10 @@ const ServiceTracking = () => {
     { id: 'PENDING_PAYMENT', label: 'Payment', icon: Clock },
     { id: 'CONFIRMED', label: 'Confirmed', icon: ShieldCheck },
     { id: 'ACCEPTED', label: 'Assigned', icon: Briefcase },
+    { id: 'UNDER_NEGOTIATION', label: 'Pricing', icon: DollarSign },
     { id: 'ARRIVED', label: 'Arrived', icon: MapPin },
-    { id: 'IN_PROGRESS', label: 'In Progress', icon: Navigation },
+    { id: 'IN_PROGRESS', label: 'Working', icon: Navigation },
+    { id: 'PENDING_VERIFICATION', label: 'Verify', icon: Zap },
     { id: 'COMPLETED', label: 'Done', icon: CheckCircle2 }
   ];
 
@@ -72,6 +74,24 @@ const ServiceTracking = () => {
        </div>
     </div>
   );
+
+  const handleAcceptPrice = async () => {
+    try {
+      await bookingService.acceptPrice(bookingId);
+      fetchBookingDetails();
+    } catch (err) {
+      alert('Failed to accept quote. Please try again.');
+    }
+  };
+
+  const handleReleasePayment = async () => {
+    try {
+      await bookingService.complete(bookingId, 'PAID');
+      fetchBookingDetails();
+    } catch (err) {
+      alert('Failed to release payment. Please try again.');
+    }
+  };
 
   const currentStep = getProgress(booking.status);
 
@@ -102,6 +122,71 @@ const ServiceTracking = () => {
                   <Navigation className="w-8 h-8 text-primary-600 animate-pulse" />
                </div>
             </div>
+
+            {/* Phase 3: Negotiation & Escrow Cards */}
+            <AnimatePresence>
+               {booking.status === 'UNDER_NEGOTIATION' && (
+                  <motion.div 
+                     initial={{ height: 0, opacity: 0 }}
+                     animate={{ height: 'auto', opacity: 1 }}
+                     exit={{ height: 0, opacity: 0 }}
+                     className="mb-8 bg-amber-50 border-2 border-amber-200 rounded-[2rem] p-8 overflow-hidden"
+                  >
+                     <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-amber-200">
+                           <DollarSign className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1">
+                           <h3 className="text-xl font-black text-amber-900 mb-1">New Price Proposal</h3>
+                           <p className="text-amber-700/80 font-bold text-xs mb-6">
+                              The specialist has proposed a revised quote of <span className="text-amber-900 font-black">₹{booking.proposedPrice}</span> due to job complexity.
+                           </p>
+                           <div className="flex gap-3">
+                              <button 
+                                 onClick={handleAcceptPrice}
+                                 className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                              >
+                                 Accept New Quote
+                              </button>
+                              <button 
+                                 onClick={() => navigate('/messages', { state: { partnerId: booking.providerId } })}
+                                 className="px-6 py-3 bg-white border border-amber-200 text-amber-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-50 transition-all"
+                              >
+                                 Discuss in Chat
+                              </button>
+                           </div>
+                        </div>
+                     </div>
+                  </motion.div>
+               )}
+
+               {booking.status === 'PENDING_VERIFICATION' && (
+                  <motion.div 
+                     initial={{ y: 20, opacity: 0 }}
+                     animate={{ y: 0, opacity: 1 }}
+                     exit={{ opacity: 0 }}
+                     className="mb-8 bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-indigo-200"
+                  >
+                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                           <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center border border-white/20">
+                              <ShieldCheck className="w-8 h-8" />
+                           </div>
+                           <div>
+                              <h3 className="text-xl font-black mb-1">Verify & Release Payment</h3>
+                              <p className="text-indigo-100/80 text-xs font-bold">Check completion photos below before releasing funds.</p>
+                           </div>
+                        </div>
+                        <button 
+                           onClick={handleReleasePayment}
+                           className="w-full md:w-auto px-10 py-4 bg-white text-indigo-600 rounded-[1.25rem] font-black text-xs uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2"
+                        >
+                           Release ₹{booking.totalPrice} <Zap className="w-4 h-4 fill-indigo-600" />
+                        </button>
+                     </div>
+                  </motion.div>
+               )}
+            </AnimatePresence>
 
             {/* Stepper UI */}
             <div className="relative pt-4 pb-8 flex justify-between items-start">
@@ -145,9 +230,12 @@ const ServiceTracking = () => {
                     </div>
                   </div>
                   {booking.etaMinutes && (
-                    <div className="text-right">
-                       <p className="text-[9px] font-black text-primary-400 uppercase tracking-widest leading-none mb-1">ETA</p>
-                       <p className="text-xl font-black text-primary-600">{booking.etaMinutes}m</p>
+                    <div className="text-right flex flex-col items-end">
+                       <p className="text-[9px] font-black text-primary-400 uppercase tracking-widest leading-none mb-1">Impact Countdown</p>
+                       <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-emerald-500 animate-pulse" />
+                          <p className="text-2xl font-black text-primary-600 tracking-tighter">{booking.etaMinutes}<span className="text-[10px] ml-0.5">MIN</span></p>
+                       </div>
                     </div>
                   )}
                </div>
@@ -163,6 +251,63 @@ const ServiceTracking = () => {
                </div>
             )}
          </div>
+
+          {/* Secure Service PIN (Phase 1) */}
+          {(booking.status === 'CONFIRMED' || booking.status === 'ACCEPTED' || booking.status === 'ARRIVED') && booking.pin && (
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-slate-900 rounded-[2.5rem] p-8 mb-8 border border-white/10 shadow-2xl relative overflow-hidden"
+            >
+               <div className="absolute top-0 right-0 w-32 h-32 bg-primary-500 rounded-full blur-[80px] -mr-16 -mt-16 opacity-20"></div>
+               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div>
+                     <h3 className="text-xl font-black text-white mb-1">Secure Start PIN</h3>
+                     <p className="text-slate-400 text-xs font-bold">Share this code only when the specialist arrives.</p>
+                  </div>
+                  <div className="flex gap-2">
+                     {booking.pin.split('').map((digit, i) => (
+                       <div key={i} className="w-12 h-16 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center text-3xl font-black text-primary-400">
+                          {digit}
+                       </div>
+                     ))}
+                  </div>
+               </div>
+            </motion.div>
+          )}
+
+          {/* Physical Proof Gallery (Phase 1) */}
+          {(booking.beforeImageUrl || booking.afterImageUrl) && (
+            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-premium mb-8">
+               <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Service Proof Gallery</h3>
+               <div className="grid grid-cols-2 gap-6">
+                  {booking.beforeImageUrl && (
+                    <div className="space-y-3">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Before Service</p>
+                       <div className="aspect-square rounded-3xl overflow-hidden border-4 border-slate-50 shadow-inner group">
+                          <img 
+                            src={booking.beforeImageUrl} 
+                            alt="Before" 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                          />
+                       </div>
+                    </div>
+                  )}
+                  {booking.afterImageUrl && (
+                    <div className="space-y-3">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">After Service</p>
+                       <div className="aspect-square rounded-3xl overflow-hidden border-4 border-slate-50 shadow-inner group">
+                          <img 
+                            src={booking.afterImageUrl} 
+                            alt="After" 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                          />
+                       </div>
+                    </div>
+                  )}
+               </div>
+            </div>
+          )}
 
          {/* Map Simulation */}
          {(booking.status === 'ACCEPTED' || booking.status === 'ARRIVED' || booking.status === 'IN_PROGRESS') && (
@@ -211,6 +356,46 @@ const ServiceTracking = () => {
                   <MessageCircle className="w-4 h-4" /> Message
                </button>
             </div>
+         </div>
+
+         {/* Phase 6: Specialist Showcase & Trust Layer */}
+         <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-premium mb-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-50 rounded-full blur-3xl opacity-40 -mr-16 -mt-16"></div>
+            <div className="flex items-center gap-4 mb-8">
+               <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-xl">
+                  {booking.providerName?.charAt(0)}
+               </div>
+               <div>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">{booking.providerName}</h3>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-500">
+                     <Star className="w-3.5 h-3.5 fill-current" />
+                     {booking.service?.averageRating?.toFixed(1) || '4.9'} • Direct Specialist
+                  </div>
+               </div>
+            </div>
+
+            <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 mb-8 flex items-start gap-3">
+               <ShieldCheck className="w-5 h-5 text-emerald-500 mt-0.5" />
+               <p className="text-[10px] text-emerald-700 font-bold leading-relaxed">
+                  Verified specialist with <span className="font-black">100% security clearance</span>. carries Diamond Trust certification.
+               </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-8">
+                <div className="aspect-square bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                   <img src="https://images.unsplash.com/photo-1581578731548-c64695ce6958?auto=format&fit=crop&q=80&w=200" alt="Work 1" className="w-full h-full object-cover grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all cursor-pointer" />
+                </div>
+                <div className="aspect-square bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                   <img src="https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=200" alt="Work 2" className="w-full h-full object-cover grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all cursor-pointer" />
+                </div>
+            </div>
+
+            <button 
+               onClick={() => navigate('/messages', { state: { partnerId: booking.providerId } })}
+               className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-200 flex items-center justify-center gap-2"
+            >
+               <MessageCircle className="w-4 h-4 text-primary-400" /> Secure Communications
+            </button>
          </div>
 
          {/* Job Details Card */}

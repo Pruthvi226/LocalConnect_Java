@@ -147,19 +147,34 @@ mysql -h your-host -u your-username -p local_service_finder < database/sample-da
 # Import schema.sql and sample-data.sql files
 ```
 
+## Production Environment Variables (Launch Checklist)
+
+### Backend (Render)
+Go to **Environment Variables** in your Web Service dashboard:
+- `SPRING_PROFILES_ACTIVE`: `prod`
+- `SPRING_DATASOURCE_URL`: (Your MySQL URL)
+- `SPRING_DATASOURCE_USERNAME`: (Your DB User)
+- `SPRING_DATASOURCE_PASSWORD`: (Your DB Pass)
+- `JWT_SECRET`: (Random 256-bit string)
+- `GEMINI_API_KEY`: (Google AI Key)
+- `CORS_ALLOWED_ORIGINS`: `https://your-frontend.vercel.app`
+- `ML_SERVICE_URL`: `https://your-ml-service.onrender.com`
+
+### ML Microservice (Render)
+- `MODEL_PATH`: `models/recommender.pkl`
+- `PORT`: `8000`
+
+### Frontend (Vercel)
+- `REACT_APP_API_URL`: `https://your-backend.onrender.com/api`
+- `REACT_APP_WS_URL`: `https://your-backend.onrender.com/ws`
+
 ## Post-Deployment Checklist
 
-- [ ] Backend is accessible and API endpoints respond
-- [ ] Frontend is accessible and loads correctly
-- [ ] Database connection is working
-- [ ] Authentication (login/register) works
-- [ ] CORS is configured correctly (frontend URL in backend CORS config)
-- [ ] Environment variables are set correctly
-- [ ] SSL/HTTPS is enabled (automatic on Vercel/Netlify/Render)
-- [ ] Email service is configured (if using)
-- [ ] Google Maps API key is set (if using maps feature)
-
-## Troubleshooting
+- [x] **SSL/HTTPS**: Automatic on Vercel/Render.
+- [ ] **AI Search**: Test with "help with leaky pipes" to verify Gemini intent detection.
+- [ ] **Payments**: Verify Webhook configuration in Stripe/Razorpay dashboard.
+- [ ] **Trust Badge**: Ensure `trustScore` is visible on provider profiles.
+- [ ] **Persistence**: Ensure `mysql_data` or managed DB persists across restarts.
 
 ### Backend Issues
 

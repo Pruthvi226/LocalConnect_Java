@@ -3,8 +3,12 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { providerService } from '../services/providerService';
 import { userService } from '../services/userService';
-import { Mail, Phone, MapPin, Briefcase, CreditCard, ShieldCheck, Star, ArrowRight } from 'lucide-react';
+import { Mail, Phone, MapPin, Briefcase, CreditCard, ShieldCheck, Star, ArrowRight, Camera } from 'lucide-react';
 import { motion } from 'framer-motion';
+import PortfolioGallery from '../components/PortfolioGallery';
+import BeforeAfterSlider from '../components/BeforeAfterSlider';
+import AvailabilityManager from '../components/AvailabilityManager';
+import dayjs from 'dayjs';
 
 const ProviderProfile = () => {
   const { user, setUser, loading } = useAuth();
@@ -213,6 +217,17 @@ const ProviderProfile = () => {
                  </div>
               </div>
             )}
+
+            {/* Phase 5: Availability Manager */}
+            {!isEditing && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <AvailabilityManager />
+              </motion.div>
+            )}
           </div>
 
           <div className="space-y-8">
@@ -252,6 +267,69 @@ const ProviderProfile = () => {
             </div>
           </div>
 
+        </div>
+
+        {/* Global Work Showcase */}
+        <div className="mt-12 space-y-12">
+            <div className="bg-white rounded-[3rem] p-10 lg:p-14 border border-slate-100 shadow-premium">
+               <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-8">
+                  <div>
+                    <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-3">Global <span className="text-indigo-600">Work Showcase</span></h2>
+                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Verified results across all specialist categories</p>
+                  </div>
+                  <div className="flex gap-4">
+                     <div className="text-center px-6 py-3 bg-indigo-50 rounded-2xl border border-indigo-100">
+                        <p className="text-2xl font-black text-indigo-600">
+                           {services.reduce((acc, s) => acc + (s.projectReels?.length || 0), 0)}
+                        </p>
+                        <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">Live Proofs</p>
+                     </div>
+                     <div className="text-center px-6 py-3 bg-slate-50 rounded-2xl border border-slate-100">
+                        <p className="text-2xl font-black text-slate-900">
+                           {services.reduce((acc, s) => acc + (s.portfolioImages?.length || 0), 0)}
+                        </p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Gallery Items</p>
+                     </div>
+                  </div>
+               </div>
+
+               {/* Section 1: Verified Results (Before/After) */}
+               {services.some(s => s.projectReels?.length > 0) && (
+                 <div className="mb-16">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-8 flex items-center gap-2">
+                       <ShieldCheck className="w-4 h-4 text-green-500" /> Latest Verified Transformations
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                       {services.flatMap(s => s.projectReels || []).slice(0, 4).map((reel, idx) => (
+                         <BeforeAfterSlider 
+                            key={reel.bookingId}
+                            before={reel.beforeImageUrl} 
+                            after={reel.afterImageUrl} 
+                            label={`Project #${reel.bookingId}`}
+                         />
+                       ))}
+                    </div>
+                 </div>
+               )}
+
+               {/* Section 2: Master Gallery */}
+               {services.some(s => s.portfolioImages?.length > 0) && (
+                 <div>
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-8 border-t border-slate-50 pt-8 flex items-center gap-2">
+                       <Camera className="w-4 h-4 text-primary-500" /> Curated Portfolio Gallery
+                    </h3>
+                    <PortfolioGallery 
+                       images={services.flatMap(s => Array.from(s.portfolioImages || []))} 
+                    />
+                 </div>
+               )}
+
+               {!services.some(s => (s.projectReels?.length > 0 || s.portfolioImages?.length > 0)) && (
+                 <div className="py-20 text-center bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+                    <p className="text-slate-400 font-bold">No portfolio items documented for this provider yet.</p>
+                 </div>
+               )}
+            </div>
         </div>
       </div>
     </div>

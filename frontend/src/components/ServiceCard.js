@@ -67,9 +67,17 @@ const ServiceCard = ({ service }) => {
       {/* Badges Overlay (Top Left) */}
       <div className="absolute top-4 left-4 z-20 flex flex-col items-start gap-2">
         {service.isAvailableNow && (
-           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-500 text-white shadow-md">
-             <Zap className="w-3 h-3 fill-white" />
-             Fast Response
+           <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-500 text-white shadow-md">
+              <Zap className="w-3 h-3 fill-white" />
+              Fast Response
+            </div>
+            {service.distanceKm <= 5 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-rose-500 text-white shadow-md animate-pulse">
+                <ShieldCheck className="w-3 h-3 fill-white" />
+                Flash Provider
+              </div>
+            )}
            </div>
         )}
         

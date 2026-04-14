@@ -30,6 +30,9 @@ public class ServiceService {
     @Autowired
     AuthService authService;
 
+    @Autowired
+    GeminiAiService geminiAiService;
+
     @Cacheable(value = "services", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<ServiceDto> getAllServices(@NonNull Pageable pageable) {
         return serviceRepository.findAll(pageable).map(this::convertToDto);
@@ -128,7 +131,39 @@ public class ServiceService {
     }
 
     public Page<ServiceDto> searchByQuery(String query, @NonNull Pageable pageable) {
-        return serviceRepository.searchByQuery(query, pageable).map(this::convertToDto);
+        Page<Service> standard = serviceRepository.searchByQuery(query, pageable);
+        
+        // Phase 6: AI Fallback Expansion
+        if (standard.isEmpty() && query != null && !query.isBlank() && geminiAiService.isAvailable()) {
+            GeminiAiService.AiQueryResult aiParsed = geminiAiService.parseQuery(query);
+            if (aiParsed != null) {
+                // Try searching by AI-extracted category or keywords
+                String category = aiParsed.category;
+                String extraKeywords = (aiParsed.keywords != null && !aiParsed.keywords.isEmpty()) 
+                    ? String.join(" ", aiParsed.keywords) : query;
+                    
+                return serviceRepository.searchServices(category, null, null, null, null, null, extraKeywords, pageable)
+                        .map(this::convertToDto);
+            }
+        }
+        
+        return standard.map(this::convertToDto);
+    }
+
+    // Phase 2: Flash Assist (SOS) Discovery
+    public List<ServiceDto> getFlashCandidates(String category, Double userLat, Double userLng) {
+        if (userLat == null || userLng == null) return java.util.Collections.emptyList();
+        
+        List<Service> base = serviceRepository.findAll();
+        return base.stream()
+                .filter(s -> Boolean.TRUE.equals(s.getIsAvailableNow()))
+                .filter(s -> category == null || category.isEmpty() || category.equalsIgnoreCase(s.getCategory()))
+                .peek(s -> s.setDistanceKm(haversineDistanceKm(userLat, userLng, s.getLatitude(), s.getLongitude())))
+                .filter(s -> s.getDistanceKm() <= 15.0) // 15km range for emergency
+                .sorted((s1, s2) -> Double.compare(calculateMatchScore(convertToDto(s2)), calculateMatchScore(convertToDto(s1))))
+                .limit(3)
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
 
     public List<String> getAllCategories() {
@@ -164,6 +199,10 @@ public class ServiceService {
         service.setLongitude(request.getLongitude());
         service.setPlatformFee(50.0); // Default platform fee
         
+        if (request.getPortfolioImageUrls() != null) {
+            service.getPortfolioImageUrls().addAll(request.getPortfolioImageUrls());
+        }
+        
         service.setProvider(currentUser);
         Service saved = serviceRepository.save(service);
         return convertToDto(saved);
@@ -195,6 +234,11 @@ public class ServiceService {
         if (request.getIsAvailableNow() != null) service.setIsAvailableNow(request.getIsAvailableNow());
         if (request.getLatitude() != null) service.setLatitude(request.getLatitude());
         if (request.getLongitude() != null) service.setLongitude(request.getLongitude());
+        
+        if (request.getPortfolioImageUrls() != null) {
+            service.getPortfolioImageUrls().clear();
+            service.getPortfolioImageUrls().addAll(request.getPortfolioImageUrls());
+        }
 
         Service updated = serviceRepository.save(java.util.Objects.requireNonNull(service));
         return convertToDto(updated);
@@ -246,5 +290,15 @@ public class ServiceService {
 
     public ServiceDto convertToDto(Service s) {
         return ServiceDto.fromEntity(s);
+    }
+
+    // Phase 6: Smart Discovery
+    public List<ServiceDto> getDiscoveryServices() {
+        // Return top 8 trending/highly-rated available services
+        return serviceRepository.searchServices(null, null, null, null, 4.0, true, null, 
+                PageRequest.of(0, 8, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "averageRating")))
+                .getContent().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
 }

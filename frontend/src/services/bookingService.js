@@ -63,5 +63,20 @@ export const bookingService = {
     });
     return response.data;
   },
+
+  proposePrice: async (id, price) => {
+    const response = await api.post(`/bookings/${id}/propose-price`, { price });
+    return response.data;
+  },
+
+  acceptPrice: async (id) => {
+    const response = await api.post(`/bookings/${id}/accept-price`);
+    return response.data;
+  },
+
+  complete: async (id, paymentStatus = 'PAID') => {
+    const response = await api.put(`/bookings/${id}/complete`, { paymentStatus });
+    return response.data;
+  },
 };
 

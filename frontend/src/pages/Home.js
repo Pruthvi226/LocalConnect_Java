@@ -11,6 +11,8 @@ import ServiceCard from '../components/ServiceCard';
 import { serviceService } from '../services/serviceService';
 import { ServiceCardSkeleton } from '../components/Skeleton';
 import api from '../services/api';
+import FlashAssistButton from '../components/FlashAssistButton';
+import FlashAssistModal from '../components/FlashAssistModal';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -29,6 +31,12 @@ const Home = () => {
   const [sortType, setSortType] = useState('distance');
   const [isSorting, setIsSorting] = useState(false);
 
+  // AI features state
+  const [aiRecommendations, setAiRecommendations] = useState([]);
+  const [isAiSearch, setIsAiSearch] = useState(false);
+  const [aiSearching, setAiSearching] = useState(false);
+  const [aiFallback, setAiFallback] = useState(false);
+
   // Typewriter effect state
   const placeholders = ["Plumber near me", "AC Repair in Hyderabad", "Electrician under ₹500"];
   const [placeholderText, setPlaceholderText] = useState('');
@@ -41,6 +49,9 @@ const Home = () => {
   const [diagnosisImageUrl, setDiagnosisImageUrl] = useState('');
   const [diagnosisLoading, setDiagnosisLoading] = useState(false);
   const [diagnosisResult, setDiagnosisResult] = useState(null);
+
+  // Phase 2: SOS State
+  const [showFlashAssist, setShowFlashAssist] = useState(false);
 
   const handleAIDiagnose = async () => {
     if (!diagnosisDesc.trim()) return;
@@ -120,19 +131,61 @@ const Home = () => {
   }, [services, sortType]);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      loadServices({
-        category: selectedCategory,
-        minRating: minRating,
-        maxDistanceKm: maxDistance,
-        UserLat: UserLocation?.latitude,
-        UserLng: UserLocation?.longitude,
-        search: searchQuery,
-        page: pagination.page,
-        size: pagination.size
-      });
-    }, 300);
-    return () => clearTimeout(handler);
+    loadAiRecommendations();
+  }, []);
+
+  const loadAiRecommendations = async () => {
+    try {
+      const res = await api.get('/ai/recommendations');
+      setAiRecommendations(res.data.services || []);
+    } catch (e) {
+      console.error("AI Recommendations failed", e);
+    }
+  };
+
+  const handleAiSearch = async (e) => {
+    if (e) e.preventDefault();
+    if (!searchQuery.trim()) {
+      setIsAiSearch(false);
+      loadServices();
+      return;
+    }
+
+    setAiSearching(true);
+    try {
+      const res = await api.post('/ai/search', { query: searchQuery });
+      const { services: aiResults, isAiPowered, fallbackUsed } = res.data;
+      setFilteredServices(aiResults || []);
+      setServices(aiResults || []); // Sync both for compatibility
+      setIsAiSearch(isAiPowered);
+      setAiFallback(fallbackUsed);
+      setLoading(false);
+    } catch {
+      setIsAiSearch(false);
+      setAiFallback(true);
+      loadServices({ search: searchQuery });
+    } finally {
+      setAiSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    // If not doing an AI search, use the standard throttled loading
+    if (!aiSearching && !isAiSearch) {
+      const handler = setTimeout(() => {
+        loadServices({
+          category: selectedCategory,
+          minRating: minRating,
+          maxDistanceKm: maxDistance,
+          UserLat: UserLocation?.latitude,
+          UserLng: UserLocation?.longitude,
+          search: searchQuery,
+          page: pagination.page,
+          size: pagination.size
+        });
+      }, 300);
+      return () => clearTimeout(handler);
+    }
   }, [selectedCategory, minRating, maxDistance, UserLocation, searchQuery, pagination.page]);
 
   const loadServices = async (filters = {}) => {
@@ -219,19 +272,22 @@ const Home = () => {
               </p>
            </header>
 
-        {/* Premium Search Bar */}
-        <div className="search-container mb-16 px-4">
+        {/* Premium Search Bar */}        <div className="search-container mb-16 px-4">
           <form 
-            onSubmit={(e) => { e.preventDefault(); }} 
+            onSubmit={handleAiSearch} 
             className="sticky top-20 z-40 relative flex items-center w-full bg-white/70 backdrop-blur-xl border border-indigo-500/20 shadow-[0_8px_30px_rgb(0,0,0,0.06)] rounded-[2rem] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] focus-within:shadow-[0_8px_30px_rgb(0,0,0,0.12)] focus-within:ring-4 focus-within:ring-indigo-500/30"
           >
             <div className="pl-6 pr-3 py-4 text-slate-400 flex items-center justify-center">
-              <MapPin className="w-6 h-6 text-primary-500" />
+              {aiSearching ? (
+                <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Sparkles className="w-6 h-6 text-primary-500" />
+              )}
             </div>
             <input
               type="text"
               className="search-input flex-1 bg-transparent border-none outline-none text-slate-700 font-medium placeholder-slate-400 w-full"
-              placeholder={placeholderText}
+              placeholder={aiSearching ? "AI is thinking..." : 'Try: "Fix my AC urgently" or "cheap plumber"'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               autoFocus
@@ -243,7 +299,7 @@ const Home = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
                   type="button" 
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => { setSearchQuery(''); setIsAiSearch(false); loadServices(); }}
                   className="p-2 mr-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-700 hover:bg-slate-200 transition-colors"
                   aria-label="Clear search"
                 >
@@ -256,8 +312,8 @@ const Home = () => {
                 type="submit"
                 className="search-btn bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black transition-all active:scale-95 shadow-lg shadow-slate-900/20"
               >
-                {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin sm:mr-2" /> : <Search className="w-5 h-5 sm:mr-2" />}
-                <span className="hidden sm:block">Search</span>
+                {aiSearching ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Search className="w-5 h-5 sm:mr-2" />}
+                <span className="hidden sm:block">AI Search</span>
               </button>
             </div>
           </form>
@@ -274,14 +330,43 @@ const Home = () => {
         </div>
         </motion.div>
 
+        {/* AI Recommendations Section */}
+        {aiRecommendations.length > 0 && !searchQuery && (
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-7xl mx-auto mb-20"
+          >
+            <div className="flex items-center justify-between mb-8 px-2">
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-6 h-6 text-violet-500 animate-pulse" />
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">AI Recommended <span className="text-violet-500">Top Picks</span></h2>
+              </div>
+              <button onClick={() => navigate('/recommendations')} className="text-sm font-black text-violet-600 hover:underline flex items-center gap-1">
+                View All <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {aiRecommendations.map((svc) => (
+                <div key={svc.id} className="relative group">
+                  <div className="absolute -top-3 -right-3 z-20 bg-violet-600 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg shadow-violet-500/20">
+                    AI Choice
+                  </div>
+                  <ServiceCard service={svc} />
+                </div>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
         {/* Results Section */}
         <section className="max-w-7xl mx-auto">
            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 px-2 gap-4">
               <div className="flex items-center gap-3">
                  <h2 className="text-2xl font-black text-slate-800">
-                    {searchQuery ? 'Search Results' : 'Recommended Nearby'}
+                    {isAiSearch ? 'AI Suggested Results ?' : searchQuery ? 'Search Results' : 'General Marketplace'}
                  </h2>
-                 <span className="bg-slate-200 text-slate-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isAiSearch ? "bg-violet-100 text-violet-600 ring-1 ring-violet-200" : "bg-slate-200 text-slate-600"}`}>
                    {filteredServices.length} Total
                  </span>
                  <AnimatePresence>
@@ -551,10 +636,82 @@ const Home = () => {
           </motion.div>
         )}
       </AnimatePresence>
+        {/* Phase 6: Smart Discovery Feed */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="container mx-auto px-4 mt-32"
+        >
+          <div className="bg-white rounded-[4rem] p-10 lg:p-14 border border-slate-100 shadow-premium relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-primary-50 rounded-full blur-[100px] -mr-48 -mt-48 opacity-40"></div>
+            
+            <div className="relative z-10">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 mb-12">
+                <div>
+                  <h2 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                    <Sparkles className="w-8 h-8 text-amber-500 animate-pulse" />
+                    ProxiSense <span className="text-primary-600">Intelligence</span>
+                  </h2>
+                  <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em] mt-2">AI-Optimized neighborhood discovery</p>
+                </div>
+                <div className="inline-flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">
+                   <BrainCircuit className="w-4 h-4 text-primary-400" /> Powered by Gemini
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
+                {categories.slice(0, 6).map((cat, idx) => (
+                  <motion.button
+                    key={cat}
+                    whileHover={{ y: -8, scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                        setSelectedCategory(cat);
+                        window.scrollTo({ top: document.getElementById('explorer-section')?.offsetTop - 100 || 800, behavior: 'smooth' });
+                    }}
+                    className="group bg-slate-50 border border-slate-100 p-8 rounded-[2.5rem] flex flex-col items-center gap-5 hover:bg-white hover:border-primary-100 hover:shadow-2xl transition-all"
+                  >
+                    <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-lg group-hover:bg-primary-500 transition-colors">
+                       <Zap className="w-7 h-7 text-primary-600 group-hover:text-white" />
+                    </div>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-primary-600">{cat}</span>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        <footer className="container mx-auto px-4 mt-32 pt-20 border-t border-slate-100 pb-20">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-10">
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center">
+                   <MapPin className="text-white w-5 h-5" />
+                </div>
+                <span className="text-xl font-black tracking-tighter text-slate-900 italic">ProxiSense <span className="text-primary-600">© 2026</span></span>
+             </div>
+             <div className="flex gap-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <span className="hover:text-primary-600 cursor-pointer transition-colors">Safety Portal</span>
+                <span className="hover:text-primary-600 cursor-pointer transition-colors">Privacy Cloud</span>
+                <span className="hover:text-primary-600 cursor-pointer transition-colors">Carrier Opportunities</span>
+             </div>
+          </div>
+        </footer>
+
+      <AnimatePresence>
+      </AnimatePresence>
+      <ChatPopup />
+      
+      {/* Phase 2: SOS Assist */}
+      <FlashAssistButton onClick={() => setShowFlashAssist(true)} />
+      <FlashAssistModal 
+        isOpen={showFlashAssist} 
+        onClose={() => setShowFlashAssist(false)} 
+        userLocation={UserLocation}
+      />
     </div>
   );
 };
-
-export default Home;
 
 

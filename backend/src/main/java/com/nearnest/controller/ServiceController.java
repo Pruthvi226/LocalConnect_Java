@@ -56,6 +56,11 @@ public class ServiceController {
         return ResponseEntity.ok(serviceService.getAiServiceSummary());
     }
 
+    @GetMapping("/discovery")
+    public ResponseEntity<List<ServiceDto>> getDiscovery() {
+        return ResponseEntity.ok(serviceService.getDiscoveryServices());
+    }
+
     @GetMapping("/search")
     public ResponseEntity<Page<ServiceDto>> searchServices(@RequestParam(name = "q") String q, @PageableDefault(size = 10) Pageable pageable) {
         return ResponseEntity.ok(serviceService.searchByQuery(Objects.requireNonNull(q), Objects.requireNonNull(pageable)));

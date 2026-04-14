@@ -4,17 +4,20 @@ import {
   Navigation, Crosshair, 
   Search, SlidersHorizontal, 
   ShieldCheck, ChevronRight,
-  Maximize2, ArrowUpRight, Zap,
-  AlertCircle, LocateFixed, MapPin, X
+  Maximize2, Zap,
+  AlertCircle, LocateFixed, X, Sparkles
 } from 'lucide-react';
 import MapSearch from '../components/MapSearch';
 import ServiceCard from '../components/ServiceCard';
 import LocationSearch from '../components/LocationSearch';
 import { serviceService } from '../services/serviceService';
+import api from '../services/api';
+import FlashAssistButton from '../components/FlashAssistButton';
+import FlashAssistModal from '../components/FlashAssistModal';
 
 const NearbyServices = () => {
   const [services, setServices] = useState([]);
-  const [UserLocation, setUserLocation] = useState(null); // {latitude, longitude, address}
+  const [UserLocation, setUserLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [distanceRange, setDistanceRange] = useState(3);
@@ -24,10 +27,16 @@ const NearbyServices = () => {
   const [smartMatchMode, setSmartMatchMode] = useState(false);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [categories, setCategories] = useState(['All']);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
+  // AI search state
+  const [isAiSearch, setIsAiSearch] = useState(false);
+  const [aiFallback, setAiFallback] = useState(false);
+  const [aiSearching, setAiSearching] = useState(false);
+  
+  // Phase 2: SOS State
+  const [showFlashAssist, setShowFlashAssist] = useState(false);
   
   const scrollRefs = useRef({});
 
@@ -113,10 +122,34 @@ const NearbyServices = () => {
     }
   }, [distanceRange, activeCategory, instantMode, smartMatchMode, lastSearchedQuery]);
 
-  const handleSearchSubmit = (e) => {
+  const handleSearchSubmit = async (e) => {
     if (e) e.preventDefault();
-    setLastSearchedQuery(searchQuery);
-    // The useEffect will trigger fetchNearby because lastSearchedQuery changed
+    if (!searchQuery.trim()) {
+      // No query — refresh normal results
+      setIsAiSearch(false);
+      setAiFallback(false);
+      setLastSearchedQuery('');
+      return;
+    }
+
+    // ── AI Search Path ────────────────────────────────────────────────────
+    setAiSearching(true);
+    try {
+      const res = await api.post('/ai/search', { query: searchQuery });
+      const { services: aiResults, isAiPowered, fallbackUsed } = res.data;
+      setServices(aiResults || []);
+      setIsAiSearch(isAiPowered);
+      setAiFallback(fallbackUsed);
+      setTotalPages(1);
+      setError('');
+    } catch {
+      // Total fallback — use normal search
+      setLastSearchedQuery(searchQuery);
+      setIsAiSearch(false);
+      setAiFallback(true);
+    } finally {
+      setAiSearching(false);
+    }
   };
 
   useEffect(() => {
@@ -170,22 +203,25 @@ const NearbyServices = () => {
               <div className="space-y-6">
                  {/* Keyword Search Bar */}
                  <div className="relative group">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-600 transition-colors">
-                       <Search className="w-5 h-5" />
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-violet-600 transition-colors">
+                       {aiSearching
+                         ? <svg className="w-5 h-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                         : <Sparkles className="w-5 h-5" />
+                       }
                     </div>
                     <form onSubmit={handleSearchSubmit}>
                       <input 
                         type="text"
-                        placeholder="Search services (e.g. cleaning, plumbing)"
+                        placeholder='AI Search: "Fix my AC urgently" or "cheap plumber"'
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit(e)}
-                        className="w-full bg-slate-50 border border-slate-100 py-4 pl-14 pr-12 rounded-2xl font-bold text-slate-900 focus:outline-none focus:border-primary-500 focus:bg-white transition-all shadow-sm"
+                        className="w-full bg-slate-50 border border-slate-100 py-4 pl-14 pr-12 rounded-2xl font-bold text-slate-900 focus:outline-none focus:border-violet-400 focus:bg-white transition-all shadow-sm"
                       />
                       {searchQuery && (
                         <button 
                           type="button"
-                          onClick={() => { setSearchQuery(''); handleSearchSubmit(); }}
+                          onClick={() => { setSearchQuery(''); setIsAiSearch(false); setAiFallback(false); }}
                           className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full text-slate-400"
                         >
                           <X className="w-4 h-4" />
@@ -298,6 +334,21 @@ const NearbyServices = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
+                   {/* AI badge */}
+                   {isAiSearch && (
+                     <div className="flex items-center gap-2 px-4 py-2.5 bg-violet-50 border border-violet-100 rounded-2xl mx-2">
+                       <Sparkles className="w-4 h-4 text-violet-600 flex-shrink-0" />
+                       <p className="text-[11px] font-black text-violet-700 uppercase tracking-widest">
+                         ✨ AI Suggested Results
+                       </p>
+                     </div>
+                   )}
+                   {aiFallback && (
+                     <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-100 rounded-2xl mx-2">
+                       <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                       <p className="text-[10px] font-bold text-amber-600">Showing standard results</p>
+                     </div>
+                   )}
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">
                       {services.length} Experts near you
                    </p>
@@ -403,6 +454,14 @@ const NearbyServices = () => {
         </main>
 
       </div>
+      
+      {/* Phase 2: SOS Assist */}
+      <FlashAssistButton onClick={() => setShowFlashAssist(true)} />
+      <FlashAssistModal 
+        isOpen={showFlashAssist} 
+        onClose={() => setShowFlashAssist(false)} 
+        userLocation={UserLocation ? { lat: UserLocation.latitude, lng: UserLocation.longitude } : null}
+      />
     </div>
   );
 };

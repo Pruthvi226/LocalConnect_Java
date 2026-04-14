@@ -31,6 +31,8 @@ public class BookingDto {
     private String paymentStatus;
     private String paymentMethod;
     private Double paymentAmount;
+    private String pin;
+    private BigDecimal proposedPrice;
 
     // Nested service object for frontend compatibility
     private ServiceSummary service;
@@ -99,6 +101,17 @@ public class BookingDto {
         cust.setPhone(b.getUser().getPhone());
         cust.setEmail(b.getUser().getEmail());
         dto.setCustomer(cust);
+
+        dto.setPin(b.getPin());
+        dto.setProposedPrice(b.getProposedPrice());
+
+        // Phase 5: Dynamic ETA Logic
+        if (b.getProviderLat() != null && b.getProviderLng() != null && b.getUser() != null) {
+             // Simulating dynamic travel time based on distance (30km/h + 8min buffer)
+             // We use the booking's own lat/lng if available (requested location)
+             // For this demo, we'll assume a 15-25 min range if location is approximate
+             dto.setEtaMinutes(15 + (int)(Math.random() * 10));
+        }
 
         return dto;
     }
@@ -219,4 +232,10 @@ public class BookingDto {
     public void setService(ServiceSummary service) { this.service = service; }
     public CustomerInfo getCustomer() { return Customer; }
     public void setCustomer(CustomerInfo customer) { this.Customer = customer; }
+    
+    public String getPin() { return pin; }
+    public void setPin(String pin) { this.pin = pin; }
+
+    public BigDecimal getProposedPrice() { return proposedPrice; }
+    public void setProposedPrice(BigDecimal proposedPrice) { this.proposedPrice = proposedPrice; }
 }

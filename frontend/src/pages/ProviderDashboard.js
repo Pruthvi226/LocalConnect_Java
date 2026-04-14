@@ -30,9 +30,11 @@ const ProviderDashboard = () => {
   const [proofImages, setProofImages] = useState({});
   const [transactions, setTransactions] = useState([]);
   const [UserProfile, setUserProfile] = useState(null);
+  const [enteredPin, setEnteredPin] = useState({});
   const [activeTab, setActiveTab] = useState('active'); // 'active', 'completed', 'cancelled', 'services', 'earnings'
   const [completionModal, setCompletionModal] = useState({ open: false, bookingId: null, loading: false });
   const [chatPartner, setChatPartner] = useState(null); // { id, name, bookingId }
+  const [negotiatePrice, setNegotiatePrice] = useState({}); // { [bookingId]: price }
   
   const [jobsPage, setJobsPage] = useState(0);
   const [jobsTotalPages, setJobsTotalPages] = useState(0);
@@ -169,7 +171,9 @@ const ProviderDashboard = () => {
       case 'CONFIRMED': return { label: 'Accept Booking', next: 'ACCEPTED' };
       case 'ACCEPTED': return { label: 'Mark as Arrived', next: 'ARRIVED' };
       case 'ARRIVED': return { label: 'Start Service', next: 'IN_PROGRESS' };
-      case 'IN_PROGRESS': return { label: 'Mark as Completed', next: 'COMPLETED' };
+      case 'IN_PROGRESS': return { label: 'Complete & Request Verify', next: 'COMPLETED' };
+      case 'UNDER_NEGOTIATION': return { label: 'Awaiting Quote Approval', next: null };
+      case 'PENDING_VERIFICATION': return { label: 'Awaiting Customer Release', next: null };
       default: return null;
     }
   };
@@ -190,9 +194,10 @@ const ProviderDashboard = () => {
     try {
       setStatusUpdating(prev => ({ ...prev, [bookingId]: true }));
       const imgs = proofImages[bookingId] || {};
+      const pin = enteredPin[bookingId];
       
       // Call service
-      await providerService.updateBookingStatus(bookingId, newStatus, null, imgs.before, imgs.after);
+      await providerService.updateBookingStatus(bookingId, newStatus, null, imgs.before, imgs.after, null, null, null, pin);
       
       // Immediate UI Feedback (Phase 1 Fix)
       setBookings(prev => prev.map(b => 
@@ -245,6 +250,32 @@ const ProviderDashboard = () => {
       alert('Failed to complete booking. Please try again.');
     } finally {
       setCompletionModal(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleProposePrice = async (bookingId) => {
+    const price = negotiatePrice[bookingId];
+    if (!price || isNaN(price)) {
+      alert('Please enter a valid price.');
+      return;
+    }
+    try {
+      setStatusUpdating(prev => ({ ...prev, [bookingId]: true }));
+      await providerService.proposePrice(bookingId, price);
+      setBookings(prev => prev.map(b => 
+        b.id === bookingId ? { ...b, status: 'UNDER_NEGOTIATION', proposedPrice: price } : b
+      ));
+      setNegotiatePrice(prev => {
+        const next = { ...prev };
+        delete next[bookingId];
+        return next;
+      });
+      await loadData();
+    } catch (err) {
+      console.error('Failed to propose price:', err);
+      alert('Failed to send proposal.');
+    } finally {
+      setStatusUpdating(prev => ({ ...prev, [bookingId]: false }));
     }
   };
 
@@ -473,10 +504,11 @@ const ProviderDashboard = () => {
                                             booking.status === 'COMPLETED' ? 'bg-green-50 text-green-600 border-green-100' : 
                                             booking.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-100' :
                                             booking.status === 'ARRIVED' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                                            booking.status === 'REVIEW_PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                            booking.status === 'PENDING_VERIFICATION' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+                                            booking.status === 'UNDER_NEGOTIATION' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                             'bg-slate-50 text-slate-600 border-slate-100'
                                          }`}>
-                                            {booking.status.replace('_', ' ')}
+                                            {booking.status === 'PENDING_VERIFICATION' ? 'VERIFICATION PENDING' : booking.status.replace('_', ' ')}
                                          </span>
                                          {booking.isEmergency && (
                                            <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border bg-red-50 text-red-600 border-red-100 flex items-center gap-1 shadow-sm">
@@ -498,8 +530,31 @@ const ProviderDashboard = () => {
                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quote</p>
                                            <p className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                                               <DollarSign className="w-3.5 h-3.5 text-green-600" /> ₹{booking.totalPrice}
+                                              {booking.proposedPrice && <span className="text-[10px] text-amber-500 font-bold ml-1">(Proposal: ₹{booking.proposedPrice})</span>}
                                            </p>
                                         </div>
+
+                                      {/* Phase 3: Negotiation Input */}
+                                      {(booking.status === 'ACCEPTED' || booking.status === 'ARRIVED' || booking.status === 'IN_PROGRESS') && (
+                                        <div className="mt-4 flex gap-2">
+                                           <div className="relative flex-1">
+                                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                                              <input 
+                                                type="number"
+                                                placeholder="Propose New Price..."
+                                                value={negotiatePrice[booking.id] || ''}
+                                                onChange={(e) => setNegotiatePrice(prev => ({ ...prev, [booking.id]: e.target.value }))}
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 pl-8 pr-3 text-[10px] font-bold text-slate-700 focus:outline-none focus:border-amber-400 transition-all border shadow-inner"
+                                              />
+                                           </div>
+                                           <button 
+                                             onClick={() => handleProposePrice(booking.id)}
+                                             className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-200 active:scale-95"
+                                           >
+                                              Offer
+                                           </button>
+                                        </div>
+                                      )}
                                      </div>
                                      <div className="flex flex-wrap gap-4 text-xs font-black text-slate-400 uppercase tracking-widest">
                                         <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-300" /> {booking.service?.location}</div>
@@ -513,6 +568,7 @@ const ProviderDashboard = () => {
 
                                   <div className="flex flex-col gap-3 w-full md:w-64">
                                      {booking.status === 'ARRIVED' && (
+                                       <>
                                        <div className="mb-2 p-3 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
                                           <div className="flex justify-between items-center mb-2 px-1">
                                              <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest leading-none">Proof: Before Service</p>
@@ -526,6 +582,21 @@ const ProviderDashboard = () => {
                                             className="w-full bg-white border border-indigo-200/50 rounded-xl py-2 px-3 text-[10px] font-bold text-slate-700 focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
                                           />
                                        </div>
+                                       <div className="mb-2 p-3 bg-slate-900 rounded-2xl border border-white/10 shadow-lg">
+                                          <div className="flex justify-between items-center mb-2 px-1">
+                                             <p className="text-[9px] font-black text-primary-400 uppercase tracking-widest leading-none">Security: Verify Customer PIN</p>
+                                             <ShieldCheck className="w-3 h-3 text-primary-500" />
+                                          </div>
+                                          <input 
+                                            type="text"
+                                            maxLength="4"
+                                            placeholder="Enter 4-digit code..."
+                                            value={enteredPin[booking.id] || ''}
+                                            onChange={(e) => setEnteredPin(prev => ({ ...prev, [booking.id]: e.target.value }))}
+                                            className="w-full bg-white/10 border border-white/20 rounded-xl py-2 px-3 text-[10px] font-black text-white focus:outline-none focus:border-primary-500 transition-all text-center tracking-[0.5em]"
+                                          />
+                                       </div>
+                                       </>
                                      )}
                                      {booking.status === 'IN_PROGRESS' && (
                                        <div className="mb-2 p-3 bg-green-50/50 rounded-2xl border border-green-100/50">

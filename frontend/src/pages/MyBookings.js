@@ -354,6 +354,34 @@ const MyBookings = () => {
                              ))}
                           </div>
                        </div>
+
+                        {/* Physical Proof Gallery (Phase 1) */}
+                        {(booking.beforeImageUrl || booking.afterImageUrl) && (
+                          <div className="mt-8 pt-8 border-t border-slate-50">
+                             <div className="flex items-center gap-2 mb-4">
+                                <ShieldCheck className="w-4 h-4 text-primary-500" />
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Physical Proof of Work</p>
+                             </div>
+                             <div className="flex gap-4">
+                                {booking.beforeImageUrl && (
+                                  <div className="flex-1 space-y-2">
+                                     <p className="text-[8px] font-black text-slate-400 uppercase text-center">Before</p>
+                                     <div className="aspect-video rounded-2xl overflow-hidden border-2 border-slate-50 shadow-sm">
+                                        <img src={booking.beforeImageUrl} alt="Before" className="w-full h-full object-cover" />
+                                     </div>
+                                  </div>
+                                )}
+                                {booking.afterImageUrl && (
+                                  <div className="flex-1 space-y-2">
+                                     <p className="text-[8px] font-black text-slate-400 uppercase text-center">After</p>
+                                     <div className="aspect-video rounded-2xl overflow-hidden border-2 border-slate-50 shadow-sm">
+                                        <img src={booking.afterImageUrl} alt="After" className="w-full h-full object-cover" />
+                                     </div>
+                                  </div>
+                                )}
+                             </div>
+                          </div>
+                        )}
                     </div>
 
                     {/* Right: Payment & Actions */}

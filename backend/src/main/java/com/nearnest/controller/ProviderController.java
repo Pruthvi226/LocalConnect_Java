@@ -56,8 +56,9 @@ public class ProviderController {
                                                    @RequestParam(name = "afterImageUrl", required = false) String afterImageUrl,
                                                    @RequestParam(name = "providerLat", required = false) Double providerLat,
                                                    @RequestParam(name = "providerLng", required = false) Double providerLng,
-                                                   @RequestParam(name = "etaMinutes", required = false) Integer etaMinutes) {
-        return ResponseEntity.ok(bookingService.updateBooking(java.util.Objects.requireNonNull(id), status, notes, beforeImageUrl, afterImageUrl, providerLat, providerLng, etaMinutes));
+                                                   @RequestParam(name = "etaMinutes", required = false) Integer etaMinutes,
+                                                   @RequestParam(name = "pin", required = false) String pin) {
+        return ResponseEntity.ok(bookingService.updateBooking(java.util.Objects.requireNonNull(id), status, notes, beforeImageUrl, afterImageUrl, providerLat, providerLng, etaMinutes, pin));
     }
 
     @GetMapping("/transactions")

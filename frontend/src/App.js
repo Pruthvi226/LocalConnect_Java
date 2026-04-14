@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import Navbar from './components/Navbar';
+import AiChatWidget from './components/AiChatWidget';
 
 const Landing = lazy(() => import('./pages/Landing'));
 const RoleSelection = lazy(() => import('./pages/RoleSelection'));
@@ -218,6 +219,7 @@ function App() {
         <Router>
           <Navbar />
           <AppRoutes />
+          <AiChatWidget />
         </Router>
       </RealtimeProvider>
     </AuthProvider>

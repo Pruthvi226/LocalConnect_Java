@@ -57,6 +57,9 @@ public class Booking {
     @Column(name = "after_image_url")
     private String afterImageUrl;
 
+    @Column(name = "pin", length = 10)
+    private String pin;
+
     // Phase 2: Live Tracking & ETA
     @Column(name = "provider_lat")
     private Double providerLat;
@@ -75,6 +78,9 @@ public class Booking {
 
     @Column(name = "accepted_at")
     private LocalDateTime acceptedAt;
+
+    @Column(name = "proposed_price")
+    private java.math.BigDecimal proposedPrice;
 
     @PrePersist
     protected void onCreate() {
@@ -106,6 +112,14 @@ public class Booking {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public java.math.BigDecimal getProposedPrice() {
+        return proposedPrice;
+    }
+
+    public void setProposedPrice(java.math.BigDecimal proposedPrice) {
+        this.proposedPrice = proposedPrice;
     }
 
     public User getUser() {
@@ -204,6 +218,14 @@ public class Booking {
         this.afterImageUrl = afterImageUrl;
     }
 
+    public String getPin() {
+        return pin;
+    }
+
+    public void setPin(String pin) {
+        this.pin = pin;
+    }
+
     public Double getProviderLat() {
         return providerLat;
     }
@@ -253,6 +275,7 @@ public class Booking {
     }
 
     public enum BookingStatus {
-        PENDING, PENDING_PAYMENT, CONFIRMED, ACCEPTED, ARRIVED, IN_PROGRESS, REVIEW_PENDING, COMPLETED, CANCELLED
+        PENDING, PENDING_PAYMENT, CONFIRMED, ACCEPTED, ARRIVED, IN_PROGRESS, 
+        UNDER_NEGOTIATION, PENDING_VERIFICATION, REVIEW_PENDING, COMPLETED, CANCELLED
     }
 }

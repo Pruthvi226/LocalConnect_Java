@@ -112,8 +112,9 @@ public class BookingController {
             @RequestParam(name = "afterImageUrl", required = false) String afterImageUrl,
             @RequestParam(name = "providerLat", required = false) Double providerLat,
             @RequestParam(name = "providerLng", required = false) Double providerLng,
-            @RequestParam(name = "etaMinutes", required = false) Integer etaMinutes) {
-        return ResponseEntity.ok(bookingService.updateBooking(Objects.requireNonNull(id), status, notes, beforeImageUrl, afterImageUrl, providerLat, providerLng, etaMinutes));
+            @RequestParam(name = "etaMinutes", required = false) Integer etaMinutes,
+            @RequestParam(name = "pin", required = false) String pin) {
+        return ResponseEntity.ok(bookingService.updateBooking(Objects.requireNonNull(id), status, notes, beforeImageUrl, afterImageUrl, providerLat, providerLng, etaMinutes, pin));
     }
 
     @DeleteMapping("/{id}")
@@ -127,16 +128,24 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.updateBooking(Objects.requireNonNull(id), BookingStatus.ACCEPTED, "Booking accepted by provider"));
     }
 
-    @PostMapping("/{id}/reject")
-    public ResponseEntity<BookingDto> rejectBooking(@PathVariable(name = "id") Long id) {
-        return ResponseEntity.ok(bookingService.updateBooking(Objects.requireNonNull(id), BookingStatus.CANCELLED, "Booking rejected by provider"));
+    @PostMapping("/{id}/propose-price")
+    public ResponseEntity<BookingDto> proposePrice(
+            @PathVariable(name = "id") Long id,
+            @RequestBody Map<String, java.math.BigDecimal> request) {
+        return ResponseEntity.ok(bookingService.proposePrice(Objects.requireNonNull(id), request.get("price")));
+    }
+
+    @PostMapping("/{id}/accept-price")
+    public ResponseEntity<BookingDto> acceptPrice(@PathVariable(name = "id") Long id) {
+        return ResponseEntity.ok(bookingService.acceptPrice(Objects.requireNonNull(id)));
     }
 
     @PutMapping("/{id}/complete")
     public ResponseEntity<BookingDto> completeBooking(
             @PathVariable(name = "id") Long id,
-            @RequestBody com.nearnest.dto.BookingCompletionRequest request) {
-        return ResponseEntity.ok(bookingService.completeBooking(Objects.requireNonNull(id), request.getPaymentStatus()));
+            @RequestBody(required = false) com.nearnest.dto.BookingCompletionRequest request) {
+        String paymentStatus = (request != null) ? request.getPaymentStatus() : "PAID";
+        return ResponseEntity.ok(bookingService.completeBooking(Objects.requireNonNull(id), paymentStatus));
     }
 
     @PostMapping("/cancel")

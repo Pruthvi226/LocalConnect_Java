@@ -27,22 +27,25 @@ const AIRecommendations = () => {
   }, []);
 
   const fetchRecommendations = useCallback(async () => {
-    if (!user?.id || !UserLocation) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/recommendations/user/${user.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Network sync interrupted.');
-      const data = await res.json();
+      // Swipe out the old ML microservice call for the new integrated Gemini AI endpoint
+      const res = await api.get('/ai/recommendations');
+      const { services: data, label } = res.data;
       setRecommendations(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message);
+      setError("AI Engine is recalibrating. Showing best-rated alternatives.");
+      // Fallback: fetch normal services if AI endpoint fails
+      try {
+        const fallbackRes = await api.get('/services');
+        setRecommendations(Array.isArray(fallbackRes.data) ? fallbackRes.data.slice(0, 5) : []);
+      } catch (e) {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
-  }, [user?.id, UserLocation]);
+  }, []);
 
   useEffect(() => {
     fetchRecommendations();

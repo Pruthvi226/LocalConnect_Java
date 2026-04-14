@@ -55,6 +55,11 @@ public class Service {
     @Column(name = "after_image_url")
     private String afterImageUrl;
 
+    @ElementCollection
+    @CollectionTable(name = "service_portfolio_images", joinColumns = @JoinColumn(name = "service_id"))
+    @Column(name = "image_url")
+    private java.util.Set<String> portfolioImageUrls = new java.util.HashSet<>();
+
     @Column(name = "average_rating")
     private Double averageRating = 0.0;
 
@@ -191,6 +196,14 @@ public class Service {
 
     public void setAfterImageUrl(String afterImageUrl) {
         this.afterImageUrl = afterImageUrl;
+    }
+
+    public java.util.Set<String> getPortfolioImageUrls() {
+        return portfolioImageUrls;
+    }
+
+    public void setPortfolioImageUrls(java.util.Set<String> portfolioImageUrls) {
+        this.portfolioImageUrls = portfolioImageUrls;
     }
 
     public Double getAverageRating() {

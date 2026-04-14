@@ -50,6 +50,9 @@ public class BookingService {
     @Autowired
     UserService userService;
 
+    @Autowired
+    com.nearnest.repository.AvailabilityRepository availabilityRepository;
+
     public List<BookingDto> getUserBookings() {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
@@ -99,6 +102,9 @@ public class BookingService {
                         return new RuntimeException("Service not found");
                     });
 
+            // Phase 5: Availability & Conflict Validation
+            validateScheduling(service, bookingDate);
+
             // Phase 1: Robust Validation
             if (service.getProvider() == null) {
                 log.error("Booking failure: Service {} has no provider assigned", serviceId);
@@ -129,6 +135,8 @@ public class BookingService {
             // If OFFLINE, confirm immediately as per user requirement
             if ("OFFLINE".equalsIgnoreCase(paymentMethod)) {
                 booking.setStatus(BookingStatus.CONFIRMED);
+                // Phase 1: Generate PIN for Offline Confirmations
+                booking.setPin(String.format("%04d", new java.util.Random().nextInt(10000)));
             } else {
                 booking.setStatus(BookingStatus.PENDING_PAYMENT);
             }
@@ -200,13 +208,14 @@ public class BookingService {
 
     @Transactional
     public BookingDto updateBooking(Long id, BookingStatus status, String notes) {
-        return updateBooking(Objects.requireNonNull(id), status, notes, null, null, null, null, null);
+        return updateBooking(Objects.requireNonNull(id), status, notes, null, null, null, null, null, null);
     }
 
     @Transactional
     public BookingDto updateBooking(@NonNull Long id, BookingStatus status, String notes, 
                                     String beforeImageUrl, String afterImageUrl,
-                                    Double providerLat, Double providerLng, Integer etaMinutes) {
+                                    Double providerLat, Double providerLng, Integer etaMinutes,
+                                    String providedPin) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
 
@@ -234,6 +243,20 @@ public class BookingService {
         if (status != null && status != oldStatus) {
             // Validate transition logic
             validateStatusTransition(oldStatus, status, currentUser.getRole());
+            
+            // Phase 1: PIN Verification for starting service
+            if (status == BookingStatus.IN_PROGRESS) {
+                if (booking.getPin() != null && !booking.getPin().equals(providedPin)) {
+                    log.error("PIN mismatch for booking {}: expected {}, got {}", id, booking.getPin(), providedPin);
+                    throw new RuntimeException("Invalid Secure PIN. Please ask the customer for the 4-digit start code.");
+                }
+            }
+            
+            // Phase 1: PIN Generation on Confirmation
+            if (status == BookingStatus.CONFIRMED && (booking.getPin() == null || booking.getPin().isEmpty())) {
+                booking.setPin(String.format("%04d", new java.util.Random().nextInt(10000)));
+            }
+
             booking.setStatus(status);
         }
         if (notes != null) {
@@ -322,12 +345,36 @@ public class BookingService {
             throw new RuntimeException("User not authenticated");
         }
 
-        // Only provider or admin can complete
+        // Phase 3: Financial Trust - Escrow Release Flow
         boolean isProvider = currentUser.getId().equals(booking.getService().getProvider().getId());
+        boolean isCustomer = currentUser.getId().equals(booking.getUser().getId());
         boolean isAdmin = currentUser.getRole() == User.Role.ADMIN;
 
-        if (!isProvider && !isAdmin) {
-            throw new RuntimeException("Permission denied. Only the service provider can mark this as complete.");
+        if (isProvider && (booking.getStatus() == BookingStatus.IN_PROGRESS || booking.getStatus() == BookingStatus.ARRIVED)) {
+            // Provider is finishing work -> Move to PENDING_VERIFICATION
+            booking.setStatus(BookingStatus.PENDING_VERIFICATION);
+            bookingRepository.save(booking);
+            
+            notificationService.createNotification(
+                java.util.Objects.requireNonNull(booking.getUser()),
+                "Review & Release Payment",
+                "Provider has finished work on #" + id + ". Please verify for payment release.",
+                Notification.NotificationType.BOOKING_UPDATED,
+                id
+            );
+            return convertToDto(booking);
+        }
+
+        if (isProvider && booking.getStatus() == BookingStatus.PENDING_VERIFICATION && !isAdmin) {
+            throw new RuntimeException("Awaiting customer verification and payment release.");
+        }
+
+        if (isCustomer && booking.getStatus() != BookingStatus.PENDING_VERIFICATION && !isAdmin) {
+             throw new RuntimeException("The provider has not yet submitted the job for verification.");
+        }
+
+        if (!isProvider && !isCustomer && !isAdmin) {
+            throw new RuntimeException("Permission denied.");
         }
 
         booking.setStatus(BookingStatus.COMPLETED);
@@ -406,8 +453,8 @@ public class BookingService {
     }
 
     private void validateStatusTransition(BookingStatus oldStatus, BookingStatus newStatus, User.Role userRole) {
-        if (newStatus == BookingStatus.CANCELLED) return; // Cancellations allowed from anywhere usually
-        if (userRole == User.Role.ADMIN) return; // Admins can override
+        if (newStatus == BookingStatus.CANCELLED) return;
+        if (userRole == User.Role.ADMIN) return;
 
         boolean valid = false;
         switch (oldStatus) {
@@ -417,12 +464,18 @@ public class BookingService {
                 if (newStatus == BookingStatus.ACCEPTED) valid = true;
                 break;
             case ACCEPTED:
-                if (newStatus == BookingStatus.ARRIVED) valid = true;
+                if (newStatus == BookingStatus.ARRIVED || newStatus == BookingStatus.UNDER_NEGOTIATION) valid = true;
+                break;
+            case UNDER_NEGOTIATION:
+                if (newStatus == BookingStatus.ACCEPTED || newStatus == BookingStatus.IN_PROGRESS) valid = true;
                 break;
             case ARRIVED:
-                if (newStatus == BookingStatus.IN_PROGRESS) valid = true;
+                if (newStatus == BookingStatus.IN_PROGRESS || newStatus == BookingStatus.UNDER_NEGOTIATION) valid = true;
                 break;
             case IN_PROGRESS:
+                if (newStatus == BookingStatus.PENDING_VERIFICATION || newStatus == BookingStatus.UNDER_NEGOTIATION) valid = true;
+                break;
+            case PENDING_VERIFICATION:
                 if (newStatus == BookingStatus.COMPLETED || newStatus == BookingStatus.REVIEW_PENDING) valid = true;
                 break;
             default:
@@ -434,7 +487,85 @@ public class BookingService {
         }
     }
 
+    @Transactional
+    public BookingDto proposePrice(Long id, java.math.BigDecimal price) {
+        Booking booking = bookingRepository.findById(java.util.Objects.requireNonNull(id))
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+        
+        booking.setProposedPrice(price);
+        booking.setStatus(BookingStatus.UNDER_NEGOTIATION);
+        Booking saved = bookingRepository.save(booking);
+        
+        notificationService.createNotification(
+            java.util.Objects.requireNonNull(booking.getUser()),
+            "New Price Proposal",
+            "Provider has proposed a new quote of ₹" + price + " for booking #" + id,
+            Notification.NotificationType.BOOKING_UPDATED,
+            id
+        );
+        
+        return convertToDto(saved);
+    }
+
+    @Transactional
+    public BookingDto acceptPrice(Long id) {
+        Booking booking = bookingRepository.findById(java.util.Objects.requireNonNull(id))
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+        
+        if (booking.getProposedPrice() == null) {
+            throw new RuntimeException("No proposed price to accept");
+        }
+        
+        booking.setTotalPrice(booking.getProposedPrice().doubleValue());
+        booking.setProposedPrice(null);
+        booking.setStatus(BookingStatus.ACCEPTED); // Resume to accepted state
+        Booking saved = bookingRepository.save(booking);
+        
+        notificationService.createNotification(
+            java.util.Objects.requireNonNull(java.util.Objects.requireNonNull(booking.getService().getProvider())),
+            "Proposal Accepted",
+            "Customer has accepted your new quote for booking #" + id,
+            Notification.NotificationType.BOOKING_UPDATED,
+            id
+        );
+        
+        return convertToDto(saved);
+    }
+
     public BookingDto convertToDto(Booking b) {
         return BookingDto.fromEntity(b);
+    }
+
+    // Phase 5: Intelligent Scheduling Engine
+    private void validateScheduling(Service service, LocalDateTime requestedTime) {
+        if (requestedTime == null) return;
+
+        User provider = service.getProvider();
+        int dayOfWeek = requestedTime.getDayOfWeek().getValue(); // 1=Mon, 7=Sun
+        java.time.LocalTime requestedLocalTime = requestedTime.toLocalTime();
+
+        // 1. Check Working Hours (Shifts)
+        List<com.nearnest.model.Availability> shifts = availabilityRepository.findByUserIdAndDayOfWeek(provider.getId(), dayOfWeek);
+        
+        if (!shifts.isEmpty()) {
+            boolean inShift = shifts.stream()
+                .anyMatch(s -> s.isActive() && 
+                          !requestedLocalTime.isBefore(s.getStartTime()) && 
+                          !requestedLocalTime.isAfter(s.getEndTime()));
+            
+            if (!inShift) {
+                throw new RuntimeException("Provider is not available at this time. Please check their working hours.");
+            }
+        }
+
+        // 2. Check for Overlapping Bookings (Conflict Detection)
+        // We assume a standard 2-hour buffer for services without explicit duration
+        LocalDateTime startBuffer = requestedTime.minusHours(1).minusMinutes(30);
+        LocalDateTime endBuffer = requestedTime.plusHours(1).plusMinutes(30);
+
+        List<Booking> conflicts = bookingRepository.findConflictingBookings(service.getId(), startBuffer, endBuffer);
+        if (!conflicts.isEmpty()) {
+            throw new RuntimeException("There is a scheduling conflict. This slot is already booked.");
+        }
     }
 }

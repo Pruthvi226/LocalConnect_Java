@@ -23,6 +23,8 @@ public class ServiceDto {
     private Double latitude;
     private Double longitude;
     private Double distanceKm;
+    private java.util.Set<String> portfolioImages;
+    private java.util.List<ProjectReelDto> projectReels;
 
     // Nested provider object for frontend compatibility (service.provider.id, service.provider.fullName)
     private ProviderInfo provider;
@@ -56,6 +58,28 @@ public class ServiceDto {
         dto.setLatitude(s.getLatitude());
         dto.setLongitude(s.getLongitude());
         dto.setDistanceKm(s.getDistanceKm());
+        
+        // Manual Portfolio Images
+        dto.setPortfolioImages(s.getPortfolioImageUrls());
+        
+        // Automated Project Reels (Live Proof-of-Work from Booking History)
+        if (s.getBookings() != null) {
+            java.util.List<ProjectReelDto> reels = s.getBookings().stream()
+                .filter(b -> b.getStatus() == com.nearnest.model.Booking.BookingStatus.COMPLETED)
+                .filter(b -> b.getAfterImageUrl() != null && !b.getAfterImageUrl().isEmpty())
+                .sorted((b1, b2) -> b2.getUpdatedAt().compareTo(b1.getUpdatedAt()))
+                .limit(6)
+                .map(b -> new ProjectReelDto(
+                    b.getId(),
+                    b.getBeforeImageUrl(),
+                    b.getAfterImageUrl(),
+                    b.getUpdatedAt(),
+                    b.getNotes()
+                ))
+                .collect(java.util.stream.Collectors.toList());
+            dto.setProjectReels(reels);
+        }
+        
         return dto;
     }
 
@@ -112,4 +136,10 @@ public class ServiceDto {
     public void setLongitude(Double longitude) { this.longitude = longitude; }
     public Double getDistanceKm() { return distanceKm; }
     public void setDistanceKm(Double distanceKm) { this.distanceKm = distanceKm; }
+
+    public java.util.Set<String> getPortfolioImages() { return portfolioImages; }
+    public void setPortfolioImages(java.util.Set<String> portfolioImages) { this.portfolioImages = portfolioImages; }
+
+    public java.util.List<ProjectReelDto> getProjectReels() { return projectReels; }
+    public void setProjectReels(java.util.List<ProjectReelDto> projectReels) { this.projectReels = projectReels; }
 }

@@ -27,6 +27,7 @@ public class ServiceRequest {
     private Boolean isAvailableNow = true;
     private Double latitude;
     private Double longitude;
+    private java.util.Set<String> portfolioImageUrls;
 
     public ServiceRequest() {}
 
@@ -51,4 +52,6 @@ public class ServiceRequest {
     public void setLatitude(Double latitude) { this.latitude = latitude; }
     public Double getLongitude() { return longitude; }
     public void setLongitude(Double longitude) { this.longitude = longitude; }
+    public java.util.Set<String> getPortfolioImageUrls() { return portfolioImageUrls; }
+    public void setPortfolioImageUrls(java.util.Set<String> portfolioImageUrls) { this.portfolioImageUrls = portfolioImageUrls; }
 }
