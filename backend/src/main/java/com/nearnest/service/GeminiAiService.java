@@ -129,6 +129,39 @@ public class GeminiAiService {
         }
     }
 
+    /**
+     * Phase 8: AI-Vision Diagnosis.
+     * Analyzes image base64 to identify technical issues.
+     */
+    public String diagnoseProblem(String base64Image, String mimeType) {
+        if (!isAvailable()) return null;
+
+        String prompt = """
+            Analyze this image of a home maintenance problem.
+            Identify:
+            1. Likely technical issue (be specific).
+            2. Urgency level: LOW (monitor), MEDIUM (fix soon), HIGH (sparking/flood/hazard).
+            3. Recommended service category: Plumbing, Electrical, AC Repair, Cleaning, Tech Support.
+            4. Estimated labor range (₹).
+            
+            Return a professional JSON summary with these keys:
+            { "issue", "urgency", "category", "estimatedLabor", "requiredParts" }
+            
+            Return ONLY JSON. No explanation.
+            """;
+
+        try {
+            long start = System.currentTimeMillis();
+            String reply = callGeminiWithImage(prompt, base64Image, mimeType, 512);
+            long ms = System.currentTimeMillis() - start;
+            log.info("[Gemini/diagnose] latency={}ms", ms);
+            return reply;
+        } catch (Exception e) {
+            log.warn("[Gemini/diagnose] Failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
     public boolean isAvailable() {
         return geminiApiKey != null && !geminiApiKey.isBlank();
     }
@@ -136,13 +169,25 @@ public class GeminiAiService {
     // ── Private Helpers ───────────────────────────────────────────────────────
 
     private String callGemini(String prompt, int maxTokens) {
+        return callGeminiWithImage(prompt, null, null, maxTokens);
+    }
+
+    private String callGeminiWithImage(String prompt, String base64Image, String mimeType, int maxTokens) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
+        List<Map<String, Object>> parts = new java.util.ArrayList<>();
+        parts.add(Map.of("text", prompt));
+
+        if (base64Image != null && mimeType != null) {
+            parts.add(Map.of("inlineData", Map.of(
+                "mimeType", mimeType,
+                "data", base64Image
+            )));
+        }
+
         Map<String, Object> body = Map.of(
-            "contents", List.of(Map.of(
-                "parts", List.of(Map.of("text", prompt))
-            )),
+            "contents", List.of(Map.of("parts", parts)),
             "generationConfig", Map.of(
                 "temperature", 0.1,
                 "maxOutputTokens", maxTokens,

@@ -13,6 +13,7 @@ import { ServiceCardSkeleton } from '../components/Skeleton';
 import api from '../services/api';
 import FlashAssistButton from '../components/FlashAssistButton';
 import FlashAssistModal from '../components/FlashAssistModal';
+import AiDiagnosisModal from '../components/AiDiagnosisModal';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -45,34 +46,25 @@ const Home = () => {
 
   // AI Diagnosis State
   const [showDiagnosis, setShowDiagnosis] = useState(false);
-  const [diagnosisDesc, setDiagnosisDesc] = useState('');
-  const [diagnosisImageUrl, setDiagnosisImageUrl] = useState('');
-  const [diagnosisLoading, setDiagnosisLoading] = useState(false);
-  const [diagnosisResult, setDiagnosisResult] = useState(null);
+  const [activeDiagnosis, setActiveDiagnosis] = useState(null);
+  const [diagnosisImage, setDiagnosisImage] = useState(null);
 
   // Phase 2: SOS State
   const [showFlashAssist, setShowFlashAssist] = useState(false);
 
-  const handleAIDiagnose = async () => {
-    if (!diagnosisDesc.trim()) return;
-    setDiagnosisLoading(true);
-    setDiagnosisResult(null);
-    try {
-      const res = await api.post('/ai/diagnose', { description: diagnosisDesc, imageUrl: diagnosisImageUrl });
-      setDiagnosisResult(res.data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setDiagnosisLoading(false);
-    }
-  };
-
-  const handleDiagnosisSearch = () => {
-    if (diagnosisResult?.category) {
-      setShowDiagnosis(false);
-      setSelectedCategory(diagnosisResult.category);
-      setDiagnosisDesc('');
-      setDiagnosisResult(null);
+  const onFinishDiagnosis = (result, image) => {
+    setActiveDiagnosis(result);
+    setDiagnosisImage(image);
+    setShowDiagnosis(false);
+    
+    // Persist for ServiceDetails page
+    localStorage.setItem('activeDiagnosis', JSON.stringify({ result, image, timestamp: Date.now() }));
+    
+    // Auto-search for the recommended category
+    if (result.category) {
+      setSelectedCategory(result.category);
+      setSearchQuery(result.issue);
+      setIsAiSearch(true); // Treat as AI search to highlight the discovery
     }
   };
 
@@ -307,12 +299,25 @@ const Home = () => {
                 </motion.button>
               )}
             </AnimatePresence>
-            <div className="pr-3 py-3">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                type="button"
+                onClick={() => setShowDiagnosis(true)}
+                className="p-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 rounded-2xl transition-all group relative"
+                title="AI Instant Diagnosis"
+              >
+                <Camera size={20} />
+                <span className="absolute -top-12 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 shadow-xl border border-white/10 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                  AI Instant Scan
+                </span>
+              </motion.button>
               <button 
                 type="submit"
-                className="search-btn bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black transition-all active:scale-95 shadow-lg shadow-slate-900/20"
+                className="search-btn h-12 px-6 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black transition-all active:scale-95 shadow-lg shadow-slate-900/20 flex items-center gap-2"
               >
-                {aiSearching ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Search className="w-5 h-5 sm:mr-2" />}
+                {aiSearching ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Search className="w-5 h-5" />}
                 <span className="hidden sm:block">AI Search</span>
               </button>
             </div>
@@ -329,6 +334,56 @@ const Home = () => {
           </div>
         </div>
         </motion.div>
+
+        {/* AI Diagnosis Result Card (Sticky if active) */}
+        <AnimatePresence>
+          {activeDiagnosis && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0, y: -20 }}
+              animate={{ height: 'auto', opacity: 1, y: 0 }}
+              exit={{ height: 0, opacity: 0, y: -20 }}
+              className="max-w-5xl mx-auto mb-12"
+            >
+              <div className="bg-white border border-indigo-500/20 rounded-3xl p-6 shadow-xl shadow-indigo-500/5 flex flex-col md:flex-row items-center gap-6">
+                <div className="w-24 h-24 rounded-2xl overflow-hidden border border-slate-100 shadow-inner shrink-0 scale-95 hover:scale-100 transition-transform">
+                  <img src={diagnosisImage} alt="Diagnosis" className="w-full h-full object-cover" />
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                  <div className="flex items-center gap-2 mb-1 justify-center md:justify-start">
+                    <Zap size={14} className="text-indigo-500" />
+                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em]">AI Intelligence Active</span>
+                  </div>
+                  <h3 className="text-xl font-black text-slate-800 mb-1">{activeDiagnosis.issue}</h3>
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-slate-500 font-medium">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle className="text-emerald-500" size={16} />
+                      Recommended: <span className="text-slate-900 font-bold">{activeDiagnosis.category}</span>
+                    </div>
+                    <div className="hidden md:block w-1.5 h-1.5 bg-slate-200 rounded-full" />
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="text-indigo-500" size={16} />
+                      Labor: <span className="text-emerald-600 font-bold">{activeDiagnosis.estimatedLabor}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 shrink-0">
+                  <div className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-black uppercase tracking-wider
+                    ${activeDiagnosis.urgency === 'HIGH' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
+                    <AlertTriangle size={14} />
+                    {activeDiagnosis.urgency} Urgency
+                  </div>
+                  <button 
+                    onClick={() => { setActiveDiagnosis(null); setDiagnosisImage(null); }}
+                    className="p-3 hover:bg-slate-100 rounded-2xl text-slate-400 hover:text-slate-600 transition-all"
+                    title="Clear Diagnosis"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* AI Recommendations Section */}
         {aiRecommendations.length > 0 && !searchQuery && (
@@ -705,10 +760,16 @@ const Home = () => {
       
       {/* Phase 2: SOS Assist */}
       <FlashAssistButton onClick={() => setShowFlashAssist(true)} />
+      {/* Modals & AI Tools */}
       <FlashAssistModal 
         isOpen={showFlashAssist} 
         onClose={() => setShowFlashAssist(false)} 
         userLocation={UserLocation}
+      />
+      <AiDiagnosisModal 
+        isOpen={showDiagnosis}
+        onClose={() => setShowDiagnosis(false)}
+        onFinishDiagnosis={onFinishDiagnosis}
       />
     </div>
   );

@@ -129,6 +129,49 @@ public class AiController {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // 4. AI Vision Diagnosis (Phase 8)
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    @PostMapping("/diagnose")
+    public ResponseEntity<AiDiagnosisResponse> diagnose(@RequestBody AiDiagnosisRequest request) {
+        if (request.image() == null) return ResponseEntity.badRequest().build();
+
+        String json = geminiAiService.diagnoseProblem(request.image(), request.mimeType());
+        
+        if (json == null) {
+            // Fallback: Default 'Manual Diagnosis' suggestion
+            return ResponseEntity.ok(new AiDiagnosisResponse(
+                "Could not auto-diagnose. Please book a technician for manual inspection.",
+                "MEDIUM", "General", "₹399 - ₹599", ""
+            ));
+        }
+
+        try {
+            // Sanitize and parse
+            json = json.replaceAll("(?s)```json\\s*", "").replaceAll("```", "").trim();
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            AiDiagnosisResult result = mapper.readValue(json, AiDiagnosisResult.class);
+            
+            return ResponseEntity.ok(new AiDiagnosisResponse(
+                result.issue, result.urgency, result.category, result.estimatedLabor, result.requiredParts
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.ok(new AiDiagnosisResponse(
+                "Technical analysis completed. Technician required for part verification.",
+                "MEDIUM", "General", "₹299 - ₹799", ""
+            ));
+        }
+    }
+
+    public record AiDiagnosisResult(
+        String issue,
+        String urgency,
+        String category,
+        String estimatedLabor,
+        String requiredParts
+    ) {}
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Private helpers
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -179,5 +222,15 @@ public class AiController {
         String reply,
         List<String> suggestedActions,
         boolean aiPowered
+    ) {}
+
+    public record AiDiagnosisRequest(String image, String mimeType) {}
+
+    public record AiDiagnosisResponse(
+        String issue,
+        String urgency,
+        String category,
+        String estimatedLabor,
+        String requiredParts
     ) {}
 }

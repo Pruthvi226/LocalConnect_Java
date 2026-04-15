@@ -33,6 +33,7 @@ public class BookingDto {
     private Double paymentAmount;
     private String pin;
     private BigDecimal proposedPrice;
+    private String aiDiagnosis;
 
     // Nested service object for frontend compatibility
     private ServiceSummary service;
@@ -104,6 +105,7 @@ public class BookingDto {
 
         dto.setPin(b.getPin());
         dto.setProposedPrice(b.getProposedPrice());
+        dto.setAiDiagnosis(b.getAiDiagnosis());
 
         // Phase 5: Dynamic ETA Logic
         if (b.getProviderLat() != null && b.getProviderLng() != null && b.getUser() != null) {
@@ -238,4 +240,7 @@ public class BookingDto {
 
     public BigDecimal getProposedPrice() { return proposedPrice; }
     public void setProposedPrice(BigDecimal proposedPrice) { this.proposedPrice = proposedPrice; }
+
+    public String getAiDiagnosis() { return aiDiagnosis; }
+    public void setAiDiagnosis(String aiDiagnosis) { this.aiDiagnosis = aiDiagnosis; }
 }

@@ -79,6 +79,9 @@ public class Booking {
     @Column(name = "accepted_at")
     private LocalDateTime acceptedAt;
 
+    @Column(name = "ai_diagnosis", length = 1000)
+    private String aiDiagnosis;
+
     @Column(name = "proposed_price")
     private java.math.BigDecimal proposedPrice;
 
@@ -272,6 +275,14 @@ public class Booking {
 
     public void setAcceptedAt(LocalDateTime acceptedAt) {
         this.acceptedAt = acceptedAt;
+    }
+
+    public String getAiDiagnosis() {
+        return aiDiagnosis;
+    }
+
+    public void setAiDiagnosis(String aiDiagnosis) {
+        this.aiDiagnosis = aiDiagnosis;
     }
 
     public enum BookingStatus {

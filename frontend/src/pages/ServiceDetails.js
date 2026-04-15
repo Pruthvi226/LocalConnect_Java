@@ -7,7 +7,7 @@ import {
   Calendar, ArrowLeft,
   Share2, ShieldAlert, CheckCircle2,
   Zap, ChevronRight, Info, AlertCircle,
-  Sparkles, Camera, X, ExternalLink
+  Sparkles, Camera, X, ExternalLink, BrainCircuit
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import { serviceService } from '../services/serviceService';
@@ -47,6 +47,7 @@ const ServiceDetails = () => {
   const [eligibleBookingId, setEligibleBookingId] = useState(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [zoomImage, setZoomImage] = useState(null);
+  const [aiDiagnosisData, setAiDiagnosisData] = useState(null);
 
   const { 
     checkAccess, 
@@ -87,6 +88,23 @@ const ServiceDetails = () => {
     loadService();
     loadReviews();
     window.scrollTo(0, 0);
+
+    // AI-Vision Context Integration
+    const stored = localStorage.getItem('activeDiagnosis');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        // Only use if within last 30 minutes
+        if (Date.now() - parsed.timestamp < 1800000) {
+          setAiDiagnosisData(parsed.result);
+          setProblemImageUrl(parsed.image);
+          if (parsed.result.urgency === 'HIGH') setIsEmergency(true);
+          
+          // Pre-fill notes with the AI breakdown
+          setBookingNotes(`AI Diagnosis Attached: ${parsed.result.issue}`);
+        }
+      } catch (e) { console.error("AI Context Load Failed", e); }
+    }
   }, [loadReviews, loadService]);
 
   const handleBooking = async () => {
@@ -107,9 +125,10 @@ const ServiceDetails = () => {
         bookingNotes,
         isEmergency,
         problemImageUrl,
-        paymentMethod
+        paymentMethod,
+        aiDiagnosis: aiDiagnosisData ? JSON.stringify(aiDiagnosisData) : null
       });
-      const result = await bookingService.create(id, new Date(bookingDate), bookingNotes, isEmergency, problemImageUrl, paymentMethod);
+      const result = await bookingService.create(id, new Date(bookingDate), bookingNotes, isEmergency, problemImageUrl, paymentMethod, aiDiagnosisData ? JSON.stringify(aiDiagnosisData) : null);
       console.log("Booking success:", result);
       setBookingSuccess(true);
       toast.success("Booking Confirmed 🎉");
@@ -670,6 +689,29 @@ const ServiceDetails = () => {
                         </motion.div>
                       )}
                    </AnimatePresence>
+                   
+                   {aiDiagnosisData && (
+                     <motion.div 
+                       initial={{ opacity: 0, scale: 0.95 }}
+                       animate={{ opacity: 1, scale: 1 }}
+                       className="mb-8 p-5 bg-slate-900 rounded-3xl border border-primary-500/30 relative overflow-hidden group shadow-2xl"
+                     >
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-primary-600/10 rounded-full blur-2xl -mr-8 -mt-8"></div>
+                        <div className="relative z-10 flex items-start gap-4">
+                           <div className="w-12 h-12 bg-primary-500 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg group-hover:rotate-12 transition-transform duration-500">
+                              <BrainCircuit className="w-6 h-6 text-white" />
+                           </div>
+                           <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-400">Diagnosis Sharing Active</p>
+                                 <Sparkles className="w-3 h-3 text-primary-400 animate-pulse" />
+                              </div>
+                              <h4 className="text-white font-black text-sm mb-1 leading-tight">{aiDiagnosisData.issue}</h4>
+                              <p className="text-[10px] font-bold text-slate-400 leading-snug">Technical breakdown & parts list will be sent to the expert.</p>
+                           </div>
+                        </div>
+                     </motion.div>
+                   )}
 
                    <div className="space-y-6 mb-8">
                       <div>

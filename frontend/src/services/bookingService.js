@@ -16,7 +16,7 @@ export const bookingService = {
     return response.data;
   },
 
-  create: async (serviceId, bookingDate, notes, isEmergency, problemImageUrl, paymentMethod) => {
+  create: async (serviceId, bookingDate, notes, isEmergency, problemImageUrl, paymentMethod, aiDiagnosis = null) => {
     // Format date for Spring Boot LocalDateTime: YYYY-MM-DDTHH:mm:ss
     let formattedDate = bookingDate;
     if (bookingDate instanceof Date) {
@@ -31,7 +31,8 @@ export const bookingService = {
       notes: notes || '',
       isEmergency: isEmergency || false,
       problemImageUrl: problemImageUrl || '',
-      paymentMethod: paymentMethod || 'ONLINE'
+      paymentMethod: paymentMethod || 'ONLINE',
+      aiDiagnosis: aiDiagnosis
     };
     const response = await api.post('/bookings', payload);
     return response.data;

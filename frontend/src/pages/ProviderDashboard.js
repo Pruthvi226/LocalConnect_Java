@@ -8,7 +8,7 @@ import {
   MessageSquare, DollarSign, Zap,
   Filter, Settings,
   ShieldCheck, LayoutDashboard,
-  ArrowUpRight, Search,
+  ArrowUpRight, Search, BrainCircuit,
   Calendar, MapPin, Star, Phone,
   ArrowRight, MessageCircle
 } from 'lucide-react';
@@ -558,6 +558,34 @@ const ProviderDashboard = () => {
                                      </div>
                                      <div className="flex flex-wrap gap-4 text-xs font-black text-slate-400 uppercase tracking-widest">
                                         <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-300" /> {booking.service?.location}</div>
+                                        {booking.aiDiagnosis && (
+                                          <div className="mt-4 mb-4 p-4 bg-slate-900 rounded-2xl border border-white/10 shadow-lg">
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <BrainCircuit size={14} className="text-primary-400" />
+                                              <span className="text-[10px] font-black text-primary-400 uppercase tracking-widest">AI Technical Insight</span>
+                                            </div>
+                                            {(() => {
+                                              try {
+                                                const ai = JSON.parse(booking.aiDiagnosis);
+                                                return (
+                                                  <div className="space-y-2">
+                                                    <p className="text-xs font-bold text-white leading-snug">"{ai.issue}"</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                      <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-lg border border-white/5">
+                                                        <AlertCircle size={10} className={ai.urgency === 'HIGH' ? 'text-red-400' : 'text-amber-400'} />
+                                                        <span className="text-[8px] font-black text-slate-400 uppercase">{ai.urgency} URGENCY</span>
+                                                      </div>
+                                                      <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-lg border border-white/5">
+                                                        <ShieldCheck size={10} className="text-primary-400" />
+                                                        <span className="text-[8px] font-black text-slate-400 uppercase">{ai.estimatedLabor}</span>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                );
+                                              } catch (e) { return null; }
+                                            })()}
+                                          </div>
+                                        )}
                                         {booking.problemImageUrl && (
                                           <a href={booking.problemImageUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-primary-600 hover:text-primary-700 transition-colors">
                                              <ArrowUpRight className="w-3.5 h-3.5" /> Client Photos

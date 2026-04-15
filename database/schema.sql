@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     eta_minutes INT,
     is_emergency BOOLEAN DEFAULT FALSE,
     problem_image_url VARCHAR(500),
+    ai_diagnosis TEXT,
     
     -- Proof of Work
     before_image_url VARCHAR(500),
