@@ -1,6 +1,12 @@
 # ProxiSense – Hyperlocal Service Marketplace
 
-ProxiSense is a production-grade, full-stack service marketplace designed to connect customers with local experts in seconds. Built with a focus on speed, reliability, and modern aesthetics, it provides a seamless end-to-end experience for both users and service providers.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Pruthvi226/LocalConnect_Java?root=backend)
+*Deploy Spring Boot Backend*
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Pruthvi226/LocalConnect_Java?root=backend-ml)
+*Deploy Python AI/ML Engine*
+
+ProxiSense is a production-grade...
 
 ![ProxiSense Banner](https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&q=80&w=1200)
 
